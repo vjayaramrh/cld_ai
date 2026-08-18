@@ -1,0 +1,27 @@
+namespace: openshift_lab
+name: assisted_installer
+version: 0.1.0
+readme: README.md
+authors:
+  - Vishwanath Jayaraman (@vjayaramrh)
+description: >-
+  Ansible modules for the OpenShift Assisted Installer API
+  (https://api.openshift.com/api/assisted-install/v2).
+license:
+  - GPL-3.0-or-later
+tags:
+  - openshift
+  - assisted_installer
+  - redhat
+  - cloud
+  - infrastructure
+repository: https://github.com/vjayaramrh/cld_ai
+issues: https://github.com/vjayaramrh/cld_ai/issues
+build_ignore:
+  - .github
+  - .claude
+  - .devcontainer
+  - run.sh
+  - scripts
+  - tests/output
+  - "*.tar.gz"

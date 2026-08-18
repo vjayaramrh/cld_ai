@@ -1,0 +1,5 @@
+---
+# Minimum ansible-core this collection supports.
+# Keep this IN SYNC with the CI matrix (.github/workflows/ci.yml) and the
+# per-version sanity ignore files (tests/sanity/ignore-*.txt).
+requires_ansible: '>=2.17.0'

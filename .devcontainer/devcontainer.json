@@ -1,0 +1,13 @@
+{
+  "name": "cld_ai",
+  "build": { "dockerfile": "Dockerfile" },
+  "workspaceFolder": "/home/dev/ansible_collections/openshift_lab/assisted_installer",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/home/dev/ansible_collections/openshift_lab/assisted_installer,type=bind,consistency=cached",
+  "remoteUser": "dev",
+  "remoteEnv": { "HOME": "/tmp" },
+  "customizations": {
+    "vscode": {
+      "extensions": ["redhat.ansible", "ms-python.python"]
+    }
+  }
+}

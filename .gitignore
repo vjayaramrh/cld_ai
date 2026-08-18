@@ -1,0 +1,20 @@
+# Secrets — never commit
+*.token
+*token*.txt
+pull-secret*.json
+pull_secret*
+.env
+
+# Build artifacts
+*.tar.gz
+tests/output/
+
+# Python / test caches
+__pycache__/
+*.pyc
+.pytest_cache/
+.ansible/
+
+# Editors
+.vscode/
+.idea/

@@ -1,0 +1,3 @@
+# Unit-test dependencies for `ansible-test units`.
+# Modules use ansible.module_utils.urls.fetch_url (no `requests`), and tests mock
+# it, so no HTTP client is needed here. Add pytest plugins if a test requires one.
