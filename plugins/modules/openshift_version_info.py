@@ -94,7 +94,6 @@ count:
 """
 
 from ansible.module_utils.basic import AnsibleModule, env_fallback
-from ansible.module_utils.six import iteritems
 
 from ..module_utils import assisted_installer as ai
 
@@ -148,7 +147,7 @@ def main():
     module.exit_json(
         changed=False,
         openshift_versions=versions,
-        count=len(list(iteritems(versions))),
+        count=len(versions),
     )
 
 
