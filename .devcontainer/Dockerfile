@@ -5,7 +5,7 @@ FROM python:3.12-slim
 ARG ANSIBLE_CORE="ansible-core>=2.17,<2.20"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        git make vim less ca-certificates openssh-client rsync \
+        git make vim less ca-certificates openssh-client rsync shellcheck \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --no-cache-dir \

@@ -50,7 +50,10 @@ fi
 # --- full: collection install round-trip -------------------------------------
 if [ "${FULL}" -eq 1 ]; then
     section "collection install round-trip"
-    tarball="$(ls -t /tmp/${USER:-}*assisted_installer-*.tar.gz /tmp/*assisted_installer-*.tar.gz 2>/dev/null | head -1)"
+    shopt -s nullglob
+    tarballs=(/tmp/*assisted_installer-*.tar.gz)
+    shopt -u nullglob
+    tarball="${tarballs[0]:-}"
     if [ -n "${tarball}" ] && \
        ansible-galaxy collection install "${tarball}" -p /tmp/collections --force >/tmp/install.log 2>&1; then
         ok "ansible-galaxy collection install"

@@ -22,11 +22,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ansible:
-          - stable-2.17
-          - stable-2.18
-          - stable-2.19
-          - devel
+        # Pair each ansible-core with a supported controller Python.
+        # devel now requires Python >= 3.13. Keep in sync with meta/runtime.yml
+        # and tests/sanity/ignore-*.txt.
+        include:
+          - ansible: stable-2.17
+            python: '3.12'
+          - ansible: stable-2.18
+            python: '3.12'
+          - ansible: stable-2.19
+            python: '3.12'
+          - ansible: devel
+            python: '3.13'
     steps:
       - name: Checkout into collection path
         uses: actions/checkout@v4
@@ -36,7 +43,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: ${{ matrix.python }}
 
       - name: Install ansible-core (${{ matrix.ansible }})
         run: pip install https://github.com/ansible/ansible/archive/${{ matrix.ansible }}.tar.gz --disable-pip-version-check
@@ -51,11 +58,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ansible:
-          - stable-2.17
-          - stable-2.18
-          - stable-2.19
-          - devel
+        include:
+          - ansible: stable-2.17
+            python: '3.12'
+          - ansible: stable-2.18
+            python: '3.12'
+          - ansible: stable-2.19
+            python: '3.12'
+          - ansible: devel
+            python: '3.13'
     steps:
       - name: Checkout into collection path
         uses: actions/checkout@v4
@@ -65,7 +76,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: ${{ matrix.python }}
 
       - name: Install ansible-core (${{ matrix.ansible }})
         run: pip install https://github.com/ansible/ansible/archive/${{ matrix.ansible }}.tar.gz --disable-pip-version-check
