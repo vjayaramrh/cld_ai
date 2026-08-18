@@ -1,0 +1,17 @@
+# Code owners for openshift_lab.assisted_installer.
+# Listed owners are automatically requested for review on matching changes
+# and satisfy the "require review from Code Owners" branch-protection rule.
+
+# Default owner for everything in the repo.
+*                       @vjayaramrh
+
+# Collection code and its contract.
+/plugins/               @vjayaramrh
+/tests/                 @vjayaramrh
+
+# Governance / conventions — change deliberately.
+/CLAUDE.md              @vjayaramrh
+/DESIGN.md              @vjayaramrh
+/galaxy.yml             @vjayaramrh
+/meta/                  @vjayaramrh
+/.github/               @vjayaramrh

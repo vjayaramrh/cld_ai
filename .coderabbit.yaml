@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit configuration — free AI code review on pull requests.
+# Enable the CodeRabbit GitHub app on this repo for it to take effect:
+# https://github.com/apps/coderabbitai
+language: en-US
+early_access: false
+
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - main
+  path_filters:
+    - "!tests/output/**"
+    - "!**/*.tar.gz"
+  path_instructions:
+    - path: "plugins/modules/**"
+      instructions: >-
+        Ansible module for the OpenShift Assisted Installer API. Enforce
+        CLAUDE.md and DESIGN.md: classify idempotency (read-only always
+        changed=False; state-based GET->compare->PATCH/DELETE; RPC actions
+        guard on current status). HTTP must go through
+        plugins/module_utils via fetch_url — never requests, never a
+        hand-built base URL or Authorization header. Every API call needs a
+        timeout. Fail fast on missing auth (never send "Bearer None").
+        Finish only via module.exit_json / module.fail_json. Require a
+        GPLv3+ header, all three doc blocks (DOCUMENTATION/EXAMPLES/RETURN)
+        with options matching argument_spec exactly, author as
+        "- Name (@handle)", and no_log=True on any secret param.
+    - path: "plugins/module_utils/**"
+      instructions: >-
+        Shared client code. Keep cross-cutting concerns (auth/token
+        resolution, URL building, the fetch_url request wrapper) here so
+        modules don't duplicate them. No requests dependency.
+    - path: "tests/unit/**"
+      instructions: >-
+        Unit tests must mock the API (patch fetch_url or the shared client) —
+        never make live calls or embed real credentials. Require create/act,
+        idempotency (2nd run changed=False), and check-mode cases.
+  tools:
+    yamllint:
+      enabled: true
+    ruff:
+      enabled: true
+
+chat:
+  auto_reply: true

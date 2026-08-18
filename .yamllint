@@ -1,0 +1,29 @@
+# yamllint configuration for the openshift_lab.assisted_installer collection.
+# Kept compatible with ansible-lint's embedded yamllint requirements so the two
+# tools agree; only the noisy line-length rule is relaxed to a warning.
+extends: default
+
+rules:
+  line-length:
+    max: 120
+    level: warning
+  # galaxy.yml and other collection files legitimately omit the leading '---'.
+  document-start: disable
+  # GitHub Actions uses `on:` as a key and true/false as values — don't warn.
+  truthy:
+    check-keys: false
+    allowed-values: ['true', 'false']
+  # The following match ansible-lint's required yamllint profile.
+  comments:
+    min-spaces-from-content: 1
+  braces:
+    max-spaces-inside: 1
+  octal-values:
+    forbid-implicit-octal: true
+    forbid-explicit-octal: true
+  comments-indentation: disable
+
+ignore: |
+  tests/output/
+  *.tar.gz
+  .git/

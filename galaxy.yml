@@ -21,6 +21,9 @@ build_ignore:
   - .github
   - .claude
   - .devcontainer
+  - .yamllint
+  - .pre-commit-config.yaml
+  - .coderabbit.yaml
   - run.sh
   - scripts
   - tests/output
