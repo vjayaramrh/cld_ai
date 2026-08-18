@@ -29,14 +29,17 @@ The **API** is `v2` (the `/v2/` path). These phases are *collection release
 milestones*, not API versions.
 
 ### Phase 1 (`1.0.0`) — solid, tested, idempotent foundation
-- Read-only info modules: `openshift_versions`, `support_levels`,
-  `supported_operators`
-- Declarative CRUD done properly: `clusters`, `infra_envs`
-  (idempotent create/update/delete via GET → PATCH)
+- Read-only info modules: `openshift_version_info`, `support_level_info`,
+  `supported_operator_info`
+- Declarative CRUD done properly: `cluster`, `infra_env`
+  (idempotent create/update/delete via GET → PATCH), each paired with a
+  read-only `cluster_info` / `infra_env_info`
 
 ### Phase 2 (`2.0.0`+) — the install lifecycle
-- Host management: `infra-envs/{id}/hosts/...` (register, bind, unbind, install, reset)
-- Cluster actions: `install`, `reset`, `cancel`, `complete-installation`
+- Host management: `host` / `host_info` (register/update/deregister) plus
+  `host_action` (bind, unbind, install, reset)
+- Cluster actions: `cluster_action` (install, reset, cancel,
+  complete-installation, allow-add-hosts, allow-add-workers)
 - Download/info helpers: ISO URL, credentials / kubeconfig
 
 Ship Phase 1 correct and green before starting Phase 2.
@@ -47,15 +50,42 @@ Idempotency is **not** one recipe applied uniformly. Classify each endpoint:
 
 | Pattern | Resources | Behavior |
 |---------|-----------|----------|
-| **Read-only / info** | `openshift_versions`, `support_levels`, `supported_operators`, `events` | Never changes state → always `changed=False`. `supports_check_mode=True` for free. |
-| **State-based (declarative)** | `clusters`, `infra_envs` | `state: present/absent`. GET by name/id → observe; create if missing; PATCH if drifted; delete if present. `changed` = real change. Delete of already-absent = `changed=False`. |
-| **RPC-style actions** | `install`, `reset`, `cancel`, `bind`, `unbind` (Phase 2) | Verbs, not desired state — cannot "PATCH to converge." Idempotency = check current status *first* and no-op if already in the target state. |
+| **Read-only / info** | `openshift_version_info`, `support_level_info`, `supported_operator_info`, `event_info` | Never changes state → always `changed=False`. `supports_check_mode=True` for free. |
+| **State-based (declarative)** | `cluster`, `infra_env` | `state: present/absent`. GET by name/id → observe; create if missing; PATCH if drifted; delete if present. `changed` = real change. Delete of already-absent = `changed=False`. |
+| **RPC-style actions** | `cluster_action`, `host_action` (Phase 2) | Verbs, not desired state — cannot "PATCH to converge." Idempotency = check current status *first* and no-op if already in the target state. |
 
 The Assisted Installer API is designed for the state-based pattern: it exposes
 `GET` (list + by-id) and `PATCH` for both `clusters` and `infra-envs`, so
 observe→compare→act maps directly onto real endpoints.
 
-## 5. Key decisions locked in
+## 5. Module naming convention
+
+Names follow Ansible's **published** module conventions so the collection is
+Galaxy / Automation-Hub publishable and reads the way Ansible users expect.
+
+- **Managed resources use the singular** (`cluster`, `infra_env`, `host`),
+  driven by `state: present/absent`. `cluster: {state: present}` reads correctly;
+  a plural `clusters` managing one resource does not.
+- **Read-only modules end in `_info` and are singular** — required by the module
+  dev guide (info modules MUST be named `<something>_info`, singular, returning
+  via the normal result dict, not `ansible_facts`). This covers both queries on
+  managed resources (`cluster_info`, `infra_env_info`, `host_info`) and catalog
+  lookups (`openshift_version_info`, `support_level_info`,
+  `supported_operator_info`, `component_version_info`, `operator_bundle_info`,
+  `release_source_info`, `managed_domain_info`, `event_info`). An `_info` module
+  that returns a *list* is idiomatic (cf. `kubernetes.core.k8s_info`).
+- **RPC-style actions are grouped per resource** into one `*_action` module with
+  an `action:` choices param (`cluster_action`, `host_action`) rather than one
+  module per verb — the "guard on current status" logic lives in one place and
+  the valid verbs self-document via `choices`. Precedent: `ansible.builtin.service`
+  folds the imperative `restarted` / `reloaded` into a single module.
+
+References: Ansible module dev guide (`developing_modules_general`,
+`developing_modules_best_practices`); real-world examples that follow this scheme —
+amazon.aws (`ec2_instance` + `ec2_instance_info`), kubernetes.core (`k8s` +
+`k8s_info`), redhat.openshift / community.okd (all singular).
+
+## 6. Key decisions locked in
 
 - **HTTP client:** `fetch_url` (dependency-free, sanity-clean, EE-friendly).
 - **License:** GPL-3.0-or-later — GPLv3 headers on module files (the Ansible norm;

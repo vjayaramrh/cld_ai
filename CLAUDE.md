@@ -22,14 +22,15 @@ read it before adding a module.
 ## Design considerations (WHAT the collection is / how it behaves)
 
 1. **Idempotency is per-resource — classify first (see DESIGN.md):**
-   - *Read-only / info* (`openshift_versions`, `support_levels`,
-     `supported_operators`, `events`): never changes state → always
+   - *Read-only / info* (`openshift_version_info`, `support_level_info`,
+     `supported_operator_info`, `event_info`): never changes state → always
      `changed=False`; set `supports_check_mode=True` trivially.
-   - *State-based / declarative* (`clusters`, `infra_envs`): `state: present/absent`;
+   - *State-based / declarative* (`cluster`, `infra_env`): `state: present/absent`;
      observe (GET) → compare → reconcile (POST/PATCH/DELETE); `changed` reflects a
      REAL change; deleting an already-absent resource is `changed=False`, not a failure;
      a create MUST set `changed=True`.
-   - *RPC-style actions* (`install`, `reset`, `cancel`, `bind`, `unbind`):
+   - *RPC-style actions* (`cluster_action`, `host_action` — verbs like `install`,
+     `reset`, `cancel`, `bind`, `unbind` via an `action:` param):
      guard on current status before acting (don't re-`install` an installing cluster).
 2. **Interface = contract.** Arguments, `state` shape, and RETURN values are the
    public API. Design them before coding; keep them stable.
@@ -55,6 +56,11 @@ read it before adding a module.
 
 ## Module authoring rules (prevent real sanity failures)
 
+- **Naming (publishable convention — see DESIGN.md §5):** managed resources are
+  **singular** (`cluster`, `infra_env`, `host`); read-only modules are **singular
+  + `_info`** (`openshift_version_info`, `cluster_info`); RPC-style actions are
+  grouped per resource as `*_action` with an `action:` choices param
+  (`cluster_action`, `host_action`) — not one module per verb.
 - **GPLv3+ header** in the first 20 lines of every file in `plugins/modules/`
   (we chose GPLv3 — do NOT suppress `missing-gplv3-license` in the ignore files).
 - **All three doc blocks** — `DOCUMENTATION`, `EXAMPLES`, `RETURN`. `options:` must
