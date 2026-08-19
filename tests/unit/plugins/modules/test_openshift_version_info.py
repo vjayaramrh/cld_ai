@@ -55,12 +55,17 @@ def _run(monkeypatch, status=200, body=None, args=None, calls=None):
 
 
 def test_happy_path_returns_versions_and_is_never_changed(monkeypatch):
-    exc = _run(monkeypatch, body={"openshift-versions": SAMPLE_VERSIONS}, args={"api_token": "t"})
-    assert isinstance(exc, AnsibleExitJson)
-    result = exc.result
-    assert result["changed"] is False
-    assert result["openshift_versions"] == SAMPLE_VERSIONS
-    assert result["count"] == 2
+    # Run twice: a read-only info module is idempotent, so a second identical
+    # run must also report changed=False (per CLAUDE.md testing posture).
+    def _once():
+        exc = _run(monkeypatch, body={"openshift-versions": SAMPLE_VERSIONS}, args={"api_token": "t"})
+        assert isinstance(exc, AnsibleExitJson)
+        assert exc.result["changed"] is False
+        assert exc.result["openshift_versions"] == SAMPLE_VERSIONS
+        assert exc.result["count"] == 2
+
+    _once()  # first run
+    _once()  # second (idempotent) run — still changed=False
 
 
 def test_query_params_reach_the_url(monkeypatch):
@@ -117,9 +122,12 @@ def test_check_mode_still_reads_and_reports_unchanged(monkeypatch):
 
 
 def test_auth_fail_fast_when_no_token(monkeypatch):
-    exc = _run(monkeypatch, body={"openshift-versions": SAMPLE_VERSIONS}, args={})
+    calls = []
+    exc = _run(monkeypatch, body={"openshift-versions": SAMPLE_VERSIONS}, args={}, calls=calls)
     assert isinstance(exc, AnsibleFailJson)
     assert "token" in exc.result["msg"].lower()
+    # Fail-fast: bail before any HTTP request is attempted.
+    assert calls == []
 
 
 def test_non_200_fails_with_status(monkeypatch):
