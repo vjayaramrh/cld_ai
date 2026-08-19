@@ -75,9 +75,21 @@ read it before adding a module.
 - **ansible-core support matrix** must stay in sync across three places:
   `meta/runtime.yml` (`requires_ansible`), `.github/workflows/ci.yml` (matrix),
   and `tests/sanity/ignore-*.txt` (one file per supported version).
-- **Testing posture:** every module ships unit tests with the API **mocked**
-  (mock `fetch_url`) — never make live calls and never put real credentials in CI.
-  Required cases: create/act, idempotency (2nd run `changed=False`), check-mode.
+- **Testing posture — units prove logic, integration proves wiring:**
+  - **Units (every module, always):** API **mocked** at `fetch_url` — never live
+    calls, never real credentials in CI. Required cases: create/act, idempotency
+    (2nd run `changed=False`), check-mode, fail-fast on no token, non-2xx →
+    `fail_json`. Units own URL/auth/query-encoding/error-mapping — do NOT
+    re-cover those in integration.
+  - **Integration (selective — see DESIGN.md §7):** add it for **state-based**
+    (`cluster`, `infra_env`) and **action** (`cluster_action`, `host_action`)
+    modules to prove the multi-step lifecycle across real playbook runs
+    (`present → present(no-op) → absent → absent(no-op)`; action guard-on-status).
+    **info** modules don't need it (units suffice). Integration NEVER hits
+    `api.openshift.com`: it runs against a **local mock server** via a `base_url`
+    override, gated so it cannot reach prod. Add the `tests/integration/` targets
+    and the CI `Integration` job **when the first state-based module lands**, not
+    before.
 - **Secrets never committed** (tokens, `pull_secret`) — see `.gitignore`.
 
 ## Container workflow
