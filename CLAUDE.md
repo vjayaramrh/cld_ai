@@ -65,7 +65,21 @@ read it before adding a module.
   (we chose GPLv3 — do NOT suppress `missing-gplv3-license` in the ignore files).
 - **All three doc blocks** — `DOCUMENTATION`, `EXAMPLES`, `RETURN`. `options:` must
   match `argument_spec` EXACTLY; `RETURN` must match what the code returns;
-  `EXAMPLES` may only use real parameters.
+  `EXAMPLES` may only use real parameters **and must be thorough for the module's
+  kind (see DESIGN.md §4)**:
+  - *info:* a basic query, a filtered query (if it has filter params), and
+    register-the-result-then-use it (e.g. a follow-up `debug`).
+  - *state:* `present` (create), an update that changes a field, `absent`
+    (delete), a check-mode (`-C`) example, and a comment noting a 2nd identical
+    run is `changed=False`.
+  - *action:* the representative action verbs, each showing the status
+    precondition it guards on.
+  - *all kinds:* every task has a meaningful `name:`; tokens/secrets come from a
+    var or env, never a literal.
+  - *Enforcement:* **validity** (real params, parseable YAML) is a hard
+    `ansible-test sanity` gate; **thoroughness** is a review-time expectation
+    that sanity does NOT check — scale it to the module's complexity (a trivial
+    module needs less than `cluster`), and don't duplicate integration coverage.
 - **Author**: `- Name (@githubhandle)` (bare names fail sanity).
 - Validate params/shapes against the OpenAPI spec — it is the source of truth.
 

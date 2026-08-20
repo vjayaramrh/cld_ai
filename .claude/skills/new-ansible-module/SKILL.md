@@ -14,7 +14,8 @@ elsewhere.
 
 1. **Standard header** with the GPLv3 line in the first 20 lines (sanity requires it).
 2. **All three doc blocks** — `DOCUMENTATION`, `EXAMPLES`, `RETURN`; `options:` must
-   match `argument_spec` **exactly**.
+   match `argument_spec` **exactly**. `EXAMPLES` must be **thorough for the module
+   kind**, not a single stub (see the template below).
 3. **Valid author**: `author:\n  - Name (@githubhandle)` (bare names fail sanity).
 4. **`no_log=False`** on any arg *named* like a secret (`key`/`password`/`token`/…)
    that isn't actually secret.
@@ -78,9 +79,38 @@ author:
 '''
 
 EXAMPLES = r'''
-- name: <example>
+# Thorough for the module's kind — do NOT ship a single stub.
+# Every task has a meaningful name:; secrets come from a var/env, never a literal.
+#
+# info kind: basic query + filtered query (if any filters) + use the result:
+- name: <query the resource>
   <namespace>.<name>.<module>:
-    <arg>: <value>
+    <filter_arg>: <value>
+  register: result
+- name: <use the registered result>
+  ansible.builtin.debug:
+    var: result.<key>
+#
+# state kind: create + update + delete + check-mode; note 2nd run is changed=false:
+- name: <ensure present (create)>
+  <namespace>.<name>.<module>:
+    name: <name>
+    state: present
+- name: <update a field (re-running unchanged reports changed=false)>
+  <namespace>.<name>.<module>:
+    name: <name>
+    <field>: <new value>
+    state: present
+- name: <ensure absent (delete)>
+  <namespace>.<name>.<module>:
+    name: <name>
+    state: absent
+#
+# action kind: each representative verb, showing the status it guards on:
+- name: <perform the action when in the expected state>
+  <namespace>.<name>.<module>:
+    name: <name>
+    action: <verb>
 '''
 
 RETURN = r'''

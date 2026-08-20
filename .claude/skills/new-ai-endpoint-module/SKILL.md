@@ -53,6 +53,15 @@ Then:
 - add `no_log=True` on any token / `pull_secret` / key arg
 - source secrets via param and/or env (documented consistently)
 - implement the classified idempotency pattern using the shared client
+- write a **thorough `EXAMPLES`** block for the classified kind (CLAUDE.md rule):
+  - *info* → a plain query, a filtered query using this endpoint's real query
+    params, and a `register` + `debug` showing the result
+    (cf. `openshift_version_info`: list all / `only_latest: true` / `version:`);
+  - *state* → `present` create, an update, `absent`, and a check-mode (`-C`) run,
+    with a comment that a 2nd identical run is `changed=false`;
+  - *action* → each representative `action:` verb and the status it guards on.
+  Use the endpoint's real params only (sanity checks EXAMPLES ↔ `argument_spec`);
+  never put a literal token — use `"{{ assisted_installer_token }}"` or env.
 
 ## 5. Tests (mock the API — no live calls)
 
