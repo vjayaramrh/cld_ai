@@ -62,6 +62,10 @@ EXAMPLES = r"""
     api_token: "{{ assisted_installer_token }}"
   register: versions
 
+- name: Show the versions returned
+  ansible.builtin.debug:
+    var: versions.openshift_versions
+
 - name: List only the latest release in each minor stream
   openshift_lab.assisted_installer.openshift_version_info:
     api_token: "{{ assisted_installer_token }}"
