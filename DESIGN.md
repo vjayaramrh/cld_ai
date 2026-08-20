@@ -95,5 +95,46 @@ amazon.aws (`ec2_instance` + `ec2_instance_info`), kubernetes.core (`k8s` +
 - **ansible-core matrix:** `requires_ansible >= 2.17`; CI tests stable-2.17,
   stable-2.18, stable-2.19, and `devel`; sanity ignore files exist per supported
   stable version and stay in sync.
-- **Testing:** API mocked (`fetch_url` patched); create / idempotency / check-mode
-  cases; no live calls or credentials in CI.
+- **Testing:** units always (API mocked); integration selectively — the
+  unit/integration mix is defined in [§7](#7-testing-strategy--unit-vs-integration).
+  No live calls or credentials in CI, ever.
+
+## 7. Testing strategy — unit vs. integration
+
+**Principle: units prove the *logic*; integration proves the *wiring and the
+multi-step lifecycle*.** Both mock the network — the API is never called for real.
+
+### Units — every module, always
+Patch `fetch_url` so the real shared client runs (URL building, query encoding,
+JSON parsing, status handling) but no HTTP leaves the process. Required cases:
+
+- happy path + **idempotency** (2nd identical run → `changed=False`)
+- **check mode** (never mutates; correct `changed`)
+- **fail-fast on missing token** (asserts *zero* HTTP calls attempted)
+- non-2xx → `fail_json` with status
+- for state/action modules: the create/act path sets `changed=True`
+
+Units **own** URL/auth/query-encoding/error-mapping/param-validation — these are
+fast and exhaustive here and must **not** be duplicated in integration.
+
+### Integration — selective, and only against a local mock
+Add `tests/integration/targets/<module>/` **only where it earns its keep**:
+
+| Module kind | Integration? | Why |
+|-------------|:------------:|-----|
+| **info** (`*_info`) | ❌ | units cover the full contract; integration is redundant |
+| **state** (`cluster`, `infra_env`) | ✅ | prove `present → present(no-op) → absent → absent(no-op)` across real playbook runs |
+| **action** (`cluster_action`, `host_action`) | ✅ | prove guard-on-status across sequenced calls / status transitions |
+| **download** helpers | ⚠️ optional | a smoke target at most |
+
+**Hard rule:** integration NEVER targets `api.openshift.com`. Modules expose a
+`base_url` override; integration points it at a **local mock HTTP server** fixture
+returning canned responses, gated so it cannot reach prod. No credentials, no
+network egress.
+
+### When to build the integration layer
+Not yet. Phase 1's info modules need units only. Introduce the `base_url` param,
+the mock-server fixture, the `tests/integration/` targets, and the CI
+`Integration` job **together with the first state-based module** (`cluster` /
+`infra_env`) — that PR is the trigger. Sanity already validates doc/argspec
+consistency at runtime, so that layer is covered independently.
