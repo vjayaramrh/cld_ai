@@ -27,7 +27,9 @@ its pattern and phase), then claim it.
   implement the matching pattern (DESIGN.md §4).
 - **HTTP:** use `ansible.module_utils.urls.fetch_url` via the shared helpers in
   `plugins/module_utils/` — never `requests`.
-- **Secrets:** `no_log=True`; never commit tokens or pull secrets.
+- **Secrets:** `no_log=True`; never commit tokens or pull secrets. Full
+  secure-coding + testing practices are in [docs/security.md](docs/security.md)
+  (to report a vulnerability, see [SECURITY.md](SECURITY.md)).
 - **Docs:** `DOCUMENTATION`/`EXAMPLES`/`RETURN` must match the code and the spec.
 - **GPLv3+ header** on every file in `plugins/modules/`.
 
