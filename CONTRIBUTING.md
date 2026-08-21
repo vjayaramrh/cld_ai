@@ -7,6 +7,11 @@ Thanks for contributing to `openshift_lab.assisted_installer`.
 Read [CLAUDE.md](CLAUDE.md) (conventions) and [DESIGN.md](DESIGN.md) (scope,
 phasing, per-resource idempotency). Every module must follow them.
 
+New to how this repo is built and reviewed? Read
+[docs/agentic-sdlc.md](docs/agentic-sdlc.md) — it explains the agent-assisted
+workflow (source of truth, rules, executable gates) and how to contribute within
+it.
+
 **Claim your work first.** Modules are tracked as issues on the
 [project board](https://github.com/users/vjayaramrh/projects/2) (one per module,
 labelled `module`). **Assign the issue to yourself before you start** so two people
@@ -16,7 +21,9 @@ its pattern and phase), then claim it.
 
 ## Ground rules
 
-- **Idempotency:** classify the resource (read-only / state-based / action) and
+- **Idempotency:** re-running a playbook must be safe — the second run should
+  report `changed=false` when nothing actually changed. How you achieve that
+  depends on the resource, so classify it (read-only / state-based / action) and
   implement the matching pattern (DESIGN.md §4).
 - **HTTP:** use `ansible.module_utils.urls.fetch_url` via the shared helpers in
   `plugins/module_utils/` — never `requests`.
