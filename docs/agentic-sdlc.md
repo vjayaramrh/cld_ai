@@ -124,6 +124,23 @@ The workflow a contributor (human or agent-assisted) follows:
 5. **Merge at the gate** — CodeRabbit reviews automatically (advisory); a human
    approves. Link the PR with `Closes #<n>` so the board moves it to Done.
 
+Visually, that loop looks like this — *think* (steps 1–2), *classify* (the one
+decision that drives the rest, detailed in [DESIGN.md §4](../DESIGN.md#4-per-resource-idempotency-model)),
+*build* (3–4), then *machine-verify* at the gate and *human-verify* at review:
+
+```mermaid
+flowchart TD
+    A[Claim module issue<br/>on the board] --> B[Look it up in the SPEC<br/>path, methods, required fields,<br/>query params, response shape]
+    B --> C{Classify the resource<br/>info / state / action}
+    C --> D[Scaffold with<br/>/new-ai-endpoint-module<br/>GPLv3 header, 3 doc blocks,<br/>shared client, no_log secrets,<br/>thorough EXAMPLES]
+    D --> E[Write unit tests, API mocked<br/>create, idempotency, check-mode,<br/>no-token, non-2xx]
+    E --> F{Gate: ./run.sh --check<br/>sanity + units + build}
+    F -->|red| D
+    F -->|green| G[PR — CodeRabbit + human review]
+    G --> H[Merge with Closes #n<br/>board auto-moves to Done]
+    C -. idempotency pattern .-> I[DESIGN.md §4]
+```
+
 The through-line: because the plan and rules are *written down* and the gates are
 *executable*, the work can be decomposed and run in parallel while a human stays
 at the intent and the final yes — which is exactly what agentic SDLC is.

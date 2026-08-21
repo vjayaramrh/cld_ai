@@ -58,6 +58,29 @@ The Assisted Installer API is designed for the state-based pattern: it exposes
 `GET` (list + by-id) and `PATCH` for both `clusters` and `infra-envs`, so
 observe→compare→act maps directly onto real endpoints.
 
+The same promise — a re-run reports `changed=False` when nothing really changed —
+is reached three different ways depending on the classification:
+
+```mermaid
+flowchart TD
+    Q{What does the<br/>endpoint do?}
+    Q -->|reads only| INFO[info module]
+    Q -->|owns a resource| STATE[state module<br/>state: present / absent]
+    Q -->|does a verb| ACTION[action module<br/>install / reset / cancel ...]
+
+    INFO --> INFOB[Always changed = FALSE<br/>check-mode for free<br/>e.g. cluster_info,<br/>openshift_version_info]
+
+    STATE --> S1[GET — observe current]
+    S1 --> S2{Differs from<br/>desired?}
+    S2 -->|no| S3[no-op<br/>changed = FALSE]
+    S2 -->|yes| S4[POST / PATCH / DELETE<br/>changed = TRUE<br/>delete of already-absent = FALSE]
+
+    ACTION --> A1[GET current status]
+    A1 --> A2{Already in<br/>target state?}
+    A2 -->|yes| A3[no-op<br/>changed = FALSE]
+    A2 -->|no| A4[perform the verb<br/>changed = TRUE]
+```
+
 ## 5. Module naming convention
 
 Names follow Ansible's **published** module conventions so the collection is
