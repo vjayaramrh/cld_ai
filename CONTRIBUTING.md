@@ -66,12 +66,21 @@ modules (to prove the multi-step lifecycle), and only against a local mock via a
 `base_url` override, never `api.openshift.com`. `_info` modules need units only.
 See DESIGN.md §7 for the matrix and the "when to build it" trigger.
 
+**Coverage ≥90% is enforced** locally and in CI. Run the full check suite:
+
 ```bash
-ansible-test sanity
-ansible-test units
+./run.sh --check     # builds, sanity, units, coverage report
 ```
 
-Both must pass before opening a PR. Keep `meta/runtime.yml`, the CI matrix, and
+Or individually:
+
+```bash
+ansible-test sanity
+ansible-test units --coverage
+ansible-test coverage report --show-missing
+```
+
+All must pass before opening a PR. Keep `meta/runtime.yml`, the CI matrix, and
 `tests/sanity/ignore-*.txt` in sync when changing supported ansible-core versions.
 
 ## Manual verification against the live API
@@ -120,6 +129,7 @@ pre-commit run --all-files
 
 - `main` is protected: PRs require passing CI (sanity, units, lint) and one
   approving review before merge. Fill in `.github/pull_request_template.md`.
+- **Coverage ≥90%** verified locally via `./run.sh --check` before opening PR.
 - **Link the PR to its module issue** with `Closes #<n>` — merging then closes the
   issue and the board moves it to **Done** automatically.
 - [CodeRabbit](https://github.com/apps/coderabbitai) reviews PRs automatically

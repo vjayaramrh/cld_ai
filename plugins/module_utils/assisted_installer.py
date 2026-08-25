@@ -19,7 +19,7 @@ logic belongs in the individual modules (see DESIGN.md for scope/phasing).
 import json
 
 from ansible.module_utils.urls import fetch_url
-from ansible.module_utils.six.moves.urllib.parse import urlencode
+from ansible.module_utils.six.moves.urllib.parse import urlencode, urlparse
 
 API_VERSION = "v2"
 API_BASE = "https://api.openshift.com/api/assisted-install/%s" % API_VERSION
@@ -30,11 +30,50 @@ SSO_TOKEN_URL = (
 DEFAULT_TIMEOUT = 30
 
 
-def build_url(path, query=None):
-    """Join a path onto the API base and append an optional query dict."""
+def _validate_base_url(url):
+    """Reject HTTP base_url unless it targets loopback (integration mock only).
+
+    HTTPS is always allowed. HTTP is allowed only for verified loopback hosts
+    (127.0.0.1, localhost, ::1) used by local integration test mocks.
+    Remote HTTP endpoints would transmit bearer tokens and pull_secret in plaintext.
+    """
+    parsed = urlparse(url)
+
+    # Require a hostname for any scheme
+    if not parsed.hostname:
+        raise ValueError(
+            "base_url must include a hostname, got: %s" % url
+        )
+    if parsed.query or parsed.fragment:
+        raise ValueError(
+            "base_url must not include query or fragment, got: %s" % url
+        )
+
+    if parsed.scheme == "https":
+        return  # always OK
+    if parsed.scheme == "http":
+        # Allow only loopback addresses for local test mocks
+        if parsed.hostname in ("127.0.0.1", "localhost", "::1"):
+            return
+        raise ValueError(
+            "base_url uses insecure HTTP for a non-loopback host (%s). "
+            "Use HTTPS for remote endpoints, or 127.0.0.1/localhost for local mocks."
+            % parsed.hostname
+        )
+    raise ValueError(
+        "base_url must use http or https scheme, got: %s" % parsed.scheme
+    )
+
+
+def build_url(path, query=None, base_url=None):
+    """Join a path onto the API base and append an optional query dict.
+
+    ``base_url`` overrides the default production base (used by integration tests
+    to point at a local mock); it must never default to anything but prod.
+    """
     if not path.startswith("/"):
         path = "/" + path
-    url = API_BASE + path
+    url = (base_url or API_BASE).rstrip("/") + path
     if query:
         # drop None/empty values; join lists as comma-separated
         clean = {}
@@ -97,14 +136,31 @@ def _refresh_token(module, offline_token):
     return token
 
 
-def request(module, method, path, token, body=None, query=None, timeout=None):
+def request(module, method, path, token, body=None, query=None, timeout=None,
+            base_url=None):
     """Make an authenticated JSON API call.
 
     Returns (data, info): `data` is the parsed JSON (or None), `info` is the
     fetch_url info dict (includes 'status'). Callers decide what counts as an
     error and call module.fail_json themselves so messages stay resource-specific.
+
+    ``base_url`` overrides the production API base (integration mock only).
     """
-    url = build_url(path, query)
+    if base_url:
+        try:
+            _validate_base_url(base_url)
+        except ValueError as exc:
+            module.fail_json(msg=str(exc))
+    url = build_url(path, query, base_url=base_url)
+
+    # Disable proxy for HTTP loopback to prevent credential leakage to proxy logs.
+    # HTTPS and production (no base_url) use default proxy behavior.
+    use_proxy = True
+    if base_url:
+        parsed = urlparse(base_url)
+        if parsed.scheme == "http" and parsed.hostname in ("127.0.0.1", "localhost", "::1"):
+            use_proxy = False
+
     headers = {
         "Authorization": "Bearer %s" % token,
         "Accept": "application/json",
@@ -117,14 +173,16 @@ def request(module, method, path, token, body=None, query=None, timeout=None):
     resp, info = fetch_url(
         module, url, data=payload, headers=headers, method=method.upper(),
         timeout=timeout or DEFAULT_TIMEOUT, validate_certs=True,
+        use_proxy=use_proxy,
     )
 
+    # Parse body from either resp.read() (success) or info["body"] (error).
+    # When fetch_url returns an error, resp=None and the body is in info["body"].
     data = None
-    if resp is not None:
-        raw = resp.read()
-        if raw:
-            try:
-                data = json.loads(raw)
-            except ValueError:
-                data = raw
+    raw = resp.read() if resp is not None else info.get("body")
+    if raw:
+        try:
+            data = json.loads(raw)
+        except ValueError:
+            data = raw
     return data, info

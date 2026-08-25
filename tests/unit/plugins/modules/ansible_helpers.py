@@ -103,3 +103,37 @@ def fake_fetch_url(status=200, body=None, calls=None):
         return _FakeResponse(raw), info
 
     return _fetch
+
+
+def queue_fetch_url(responses, calls=None):
+    """Build a ``fetch_url`` replacement that returns queued responses in order.
+
+    State-based modules make several calls per run (GET then POST/PATCH/DELETE),
+    so a single canned response isn't enough. Pass a list of ``(status, body)``
+    tuples; each call consumes the next one. ``calls`` records every invocation
+    (url/method/data/...) so tests can assert exactly which verbs fired.
+    """
+    remaining = list(responses)
+
+    def _fetch(module, url, data=None, headers=None, method="GET", timeout=None, **kwargs):
+        if calls is not None:
+            calls.append({
+                "url": url,
+                "method": method,
+                "data": data,
+                "headers": headers,
+                "timeout": timeout,
+                "use_proxy": kwargs.get("use_proxy"),
+                "validate_certs": kwargs.get("validate_certs"),
+            })
+        if not remaining:
+            raise AssertionError("unexpected extra HTTP call: %s %s" % (method, url))
+        status, body = remaining.pop(0)
+        info = {"status": status, "url": url}
+        if status >= 400:
+            info["body"] = to_bytes(json.dumps(body)) if body is not None else b""
+            return None, info
+        raw = to_bytes(json.dumps(body)) if body is not None else b""
+        return _FakeResponse(raw), info
+
+    return _fetch

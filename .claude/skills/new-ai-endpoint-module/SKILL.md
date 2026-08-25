@@ -36,14 +36,20 @@ For the target resource, record from the spec:
 from ansible_collections.openshift_lab.assisted_installer.plugins.module_utils \
     import assisted_installer as ai
 
-token = ai.resolve_token(module)                         # env/param -> bearer, or fail_json
-data, info = ai.request(module, "GET", "/clusters", token, query={"with_hosts": with_hosts})
-if info["status"] not in (200,):
-    module.fail_json(msg="...", status=info["status"], body=data)
+token = ai.resolve_token(module)  # env/param -> bearer, or fail_json
+data, info = ai.request(
+    module, "GET", "/clusters", token,
+    query={"with_hosts": with_hosts},
+    timeout=params.get("timeout", 30),
+    base_url=params.get("base_url"),  # integration mock override (validated)
+)
+if info["status"] != 200:
+    module.fail_json(msg="...", status=info["status"])
 ```
 
 Never import `requests`; never build the base URL or Authorization header by hand;
-always rely on the client's timeout.
+always rely on the client's timeout. `base_url` is validated (HTTPS always allowed;
+HTTP only for loopback 127.0.0.1/localhost) to prevent credential leakage.
 
 ## 4. Module shape (fill from §1/§2)
 
@@ -63,18 +69,55 @@ Then:
   Use the endpoint's real params only (sanity checks EXAMPLES ↔ `argument_spec`);
   never put a literal token — use `"{{ assisted_installer_token }}"` or env.
 
+**State-module patterns** (see `plugins/modules/infra_env.py` as the reference):
+1. **Write-only fields** (pull_secret, keys): accept as input (`no_log=True`), send
+   on create, but **exclude from drift comparison** (API never returns them).
+2. **Immutable fields** (cluster_id, cpu_architecture): **fail before any write** if
+   the user tries to change one; list the conflict in the error (current vs. requested).
+3. **Partial PATCH**: only send fields the user set AND that differ; never full-object
+   replace; unset options never appear in the body (no phantom drift).
+4. **Check mode**: `supports_check_mode=True`; always GET (safe), return before any
+   POST/PATCH/DELETE when `module.check_mode`; report `changed=True/False` honestly.
+
 ## 5. Tests (mock the API — no live calls)
 
-Add `tests/unit/plugins/modules/test_<module>.py` mocking the client:
+Add `tests/unit/plugins/modules/test_<module>.py`. **Mock at the `fetch_url` layer**
+(per CLAUDE.md) so the REAL shared client runs (URL building, auth, JSON parsing):
 
 ```python
-monkeypatch.setattr(<module>.ai, "request", fake_request)
-monkeypatch.setattr(<module>.ai, "resolve_token", lambda module: "t")
+from ansible_helpers import (
+    AnsibleExitJson, AnsibleFailJson, patch_ansible, queue_fetch_url, set_module_args,
+)
+from ansible_collections.openshift_lab.assisted_installer.plugins.module_utils import (
+    assisted_installer as ai,
+)
+
+def test_create_posts_and_is_changed(monkeypatch):
+    patch_ansible(monkeypatch)
+    monkeypatch.delenv("AI_API_TOKEN", raising=False)
+    monkeypatch.delenv("AI_OFFLINE_TOKEN", raising=False)
+    calls = []
+    monkeypatch.setattr(ai, "fetch_url", queue_fetch_url(
+        [(200, []), (201, {"id": "abc"})],  # GET then POST
+        calls=calls,
+    ))
+    set_module_args({"name": "x", "api_token": "t"})
+    <module>.main()  # raises AnsibleExitJson
+    assert [c["method"] for c in calls] == ["GET", "POST"]
 ```
 
-Cover: create/act (`changed=True`), idempotency (2nd run `changed=False`),
-check-mode (no side effect). Reuse `set_module_args` + `AnsibleExitJson/FailJson`
-helpers from the `/new-ansible-module` skill.
+For **state modules**, use `queue_fetch_url(responses, calls)` — pass a list of
+`(status, body)` tuples; each request consumes the next. Assert on `calls` to prove
+which HTTP verbs fired (the teeth of idempotency/check-mode tests).
+
+**5-category test structure** (see `test_infra_env.py` as the reference):
+1. Lifecycle — create, update (drift), delete
+2. Idempotency — no-drift present, already-absent delete (changed=False)
+3. Check mode — create/update predicts but never writes (`calls == ["GET"]`)
+4. Safety guards — immutable conflict, ambiguous match, fail-fast no token
+5. API contract — required_if, error mapping (non-2xx → fail_json), base_url override
+
+Every state module should cover all 5 categories.
 
 ## 6. Verify (do not stop until green)
 

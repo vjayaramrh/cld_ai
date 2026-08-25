@@ -13,7 +13,8 @@ RUN pip install --no-cache-dir \
         "pytest>=8.0" \
         "pytest-mock>=3.12" \
         "pytest-xdist>=3.5" \
-        "pyyaml>=6.0"
+        "pyyaml>=6.0" \
+        "coverage==7.6.1"
 
 # Bind-mounted repo is owned by the host user; avoid git "dubious ownership".
 RUN git config --system --add safe.directory '*'

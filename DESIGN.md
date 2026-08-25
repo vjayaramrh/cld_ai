@@ -120,7 +120,8 @@ amazon.aws (`ec2_instance` + `ec2_instance_info`), kubernetes.core (`k8s` +
   stable version and stay in sync.
 - **Testing:** units always (API mocked); integration selectively — the
   unit/integration mix is defined in [§7](#7-testing-strategy--unit-vs-integration).
-  No live calls or credentials in CI, ever.
+  No live calls or credentials in CI, ever. Coverage ≥90% enforced (execution-based
+  gate that complements pattern-based review).
 
 ## 7. Testing strategy — unit vs. integration
 
@@ -139,6 +140,13 @@ JSON parsing, status handling) but no HTTP leaves the process. Required cases:
 
 Units **own** URL/auth/query-encoding/error-mapping/param-validation — these are
 fast and exhaustive here and must **not** be duplicated in integration.
+
+**Coverage ≥90% enforced:** `ansible-test units --coverage` tracks statement and
+**branch** coverage. The report shows missing lines and partially-covered branches
+(e.g., a check-mode `if` that never fires in tests). Branch coverage catches
+untested conditional paths that line coverage alone would miss. Both local
+(`./run.sh --check`) and CI enforce the 90% threshold; CI posts a detailed report
+to every PR.
 
 ### Integration — selective, and only against a local mock
 Add `tests/integration/targets/<module>/` **only where it earns its keep**:
