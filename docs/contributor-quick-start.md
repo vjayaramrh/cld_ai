@@ -36,6 +36,7 @@ cd cld_ai
 3. [CONTRIBUTING.md](../CONTRIBUTING.md) - workflow (10 min)
 4. `plugins/modules/openshift_version_info.py` - simplest module (59 lines)
 5. `tests/unit/plugins/modules/test_openshift_version_info.py` - simplest tests
+6. [docs/testing-cheat-sheet.md](testing-cheat-sheet.md) - test patterns reference (5 min)
 
 **By end of week:**
 - [ ] Can run `./run.sh --check` successfully
@@ -95,7 +96,7 @@ cp tests/unit/plugins/modules/test_openshift_version_info.py \
 2. Add any filter parameters (if the API supports them)
 3. Write the DOCUMENTATION block (parameters, return values)
 4. Write EXAMPLES showing: basic query, filtered query, register + debug
-5. Write tests for the 5 categories (see [CONTRIBUTING.md](../CONTRIBUTING.md))
+5. Write tests for the 5 categories (see [testing-cheat-sheet.md](testing-cheat-sheet.md) for patterns)
 
 **Run the checks:**
 ```bash
@@ -201,7 +202,7 @@ monkeypatch.setattr(ai, "fetch_url", queue_fetch_url([
 
 **No live credentials needed** - all unit tests run offline!
 
-For manual verification against the real API, see [CONTRIBUTING.md](../CONTRIBUTING.md#manual-verification-against-the-live-api).
+See [testing-cheat-sheet.md](testing-cheat-sheet.md) for complete test patterns and examples. For manual verification against the real API, see [CONTRIBUTING.md](../CONTRIBUTING.md#manual-verification-against-the-live-api).
 
 ---
 

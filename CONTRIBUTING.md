@@ -63,6 +63,8 @@ create/act, idempotency (2nd run `changed=False`), check-mode, fail-fast on a
 missing token (zero HTTP calls), and non-2xx → `fail_json`. No live calls, no
 credentials in CI.
 
+**New to testing?** See [docs/testing-cheat-sheet.md](docs/testing-cheat-sheet.md) for quick reference patterns and examples.
+
 **Integration tests are selective** — add them only for **state** and **action**
 modules (to prove the multi-step lifecycle), and only against a local mock via a
 `base_url` override, never `api.openshift.com`. `_info` modules need units only.

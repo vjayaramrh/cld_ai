@@ -1,0 +1,32 @@
+#!/bin/bash
+# Pre-commit hook: prevent commits directly to main branch
+#
+# This hook ensures all changes go through feature branches and PRs,
+# maintaining the review process and keeping main clean.
+
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+if [ "$BRANCH" = "main" ]; then
+  echo ""
+  echo "❌ ERROR: Cannot commit directly to main branch!"
+  echo ""
+  echo "All changes must go through feature branches and pull requests."
+  echo ""
+  echo "To fix:"
+  echo "  1. Create a feature branch:"
+  echo "     git checkout -b <type>/<description>"
+  echo ""
+  echo "  2. Make your changes on the branch"
+  echo "  3. Commit to the branch"
+  echo "  4. Push and open a PR"
+  echo ""
+  echo "Examples:"
+  echo "  git checkout -b feature/add-module"
+  echo "  git checkout -b docs/testing-guide"
+  echo "  git checkout -b fix/auth-token-validation"
+  echo ""
+  exit 1
+fi
+
+# If we're not on main, allow the commit
+exit 0

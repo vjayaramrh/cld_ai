@@ -123,6 +123,30 @@ Everything runs in a container (Docker or Podman) — no host deps. Verify with:
 Inside the container, `ansible-test` runs WITHOUT `--docker` (already containerized);
 CI uses `--docker`. Coverage report shows missing lines and partial branches.
 
+## Git workflow
+
+**NEVER commit directly to `main`.** All changes must go through feature branches and PRs.
+
+Before every commit:
+1. **Check your branch:** `git branch --show-current`
+2. **If it says `main`:** STOP. Create a feature branch first:
+   ```bash
+   git checkout -b <type>/<description>
+   # Examples:
+   #   git checkout -b feature/add-support-level-info
+   #   git checkout -b docs/testing-guide
+   #   git checkout -b fix/token-validation
+   ```
+3. **Then commit:** `git commit -m "..."`
+
+**Install the pre-commit hook** to prevent accidents:
+```bash
+./scripts/install-hooks.sh
+```
+
+The hook blocks commits to `main` locally. Branch protection blocks pushes to `main`
+remotely. Together they enforce the PR-only workflow.
+
 ## Golden rule
 
 Keep `main` green: `ansible-test sanity`, `ansible-test units`, and **coverage ≥90%**
