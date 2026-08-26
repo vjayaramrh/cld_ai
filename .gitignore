@@ -18,3 +18,6 @@ __pycache__/
 # Editors
 .vscode/
 .idea/
+
+# Local documentation (living docs, not for repo)
+docs/presentation-team-onboarding.md
