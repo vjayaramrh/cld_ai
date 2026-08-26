@@ -104,6 +104,11 @@ read it before adding a module.
     override, gated so it cannot reach prod. Add the `tests/integration/` targets
     and the CI `Integration` job **when the first state-based module lands**, not
     before.
+  - **Coverage (≥90% enforced):** `./run.sh --check` runs `ansible-test units --coverage`
+    and enforces a 90% minimum (total coverage, with branch coverage tracked).
+    Shows missing lines and partially-covered branches. Branch coverage catches
+    untested conditional paths (e.g., a check-mode branch that never fires).
+    Execution-based coverage complements CodeRabbit's pattern-based review.
 - **Secrets never committed** (tokens, `pull_secret`) — see `.gitignore`.
 
 ## Container workflow
@@ -111,18 +116,18 @@ read it before adding a module.
 Everything runs in a container (Docker or Podman) — no host deps. Verify with:
 
 ```bash
-./run.sh --check     # collection build + ansible-test sanity + units
+./run.sh --check     # collection build + sanity + units + coverage report (≥90%)
 ./run.sh --full      # also the collection install round-trip
 ```
 
 Inside the container, `ansible-test` runs WITHOUT `--docker` (already containerized);
-CI uses `--docker`.
+CI uses `--docker`. Coverage report shows missing lines and partial branches.
 
 ## Golden rule
 
-Keep `main` green: `ansible-test sanity` and `ansible-test units` must pass before
-merge (`./run.sh --check`). This must remain a buildable, installable collection
-(`ansible-galaxy collection build`).
+Keep `main` green: `ansible-test sanity`, `ansible-test units`, and **coverage ≥90%**
+must pass before merge (`./run.sh --check`). This must remain a buildable, installable
+collection (`ansible-galaxy collection build`).
 
 ## Fastest way to add a module
 

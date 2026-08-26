@@ -37,11 +37,47 @@ fi
 # --- units (only if tests exist) ---------------------------------------------
 section "ansible-test units"
 if ls tests/unit/plugins/modules/test_*.py >/dev/null 2>&1; then
-    if ansible-test units --color >/tmp/units.log 2>&1; then
+    # Erase old coverage data before running tests
+    ansible-test coverage erase >/dev/null 2>&1 || true
+
+    if ansible-test units --color --coverage >/tmp/units.log 2>&1; then
         ok "ansible-test units"
     else
         no "ansible-test units"
         tail -40 /tmp/units.log
+    fi
+
+    # Generate coverage report (show missing lines for gaps)
+    section "coverage report"
+    if ansible-test coverage report --show-missing >/tmp/coverage.log 2>&1; then
+        # Show the full report
+        cat /tmp/coverage.log
+
+        # Check if we hit the minimum threshold (extract from report)
+        # The report ends with: TOTAL <stmts> <miss> <cover>%
+        coverage_pct=$(grep '^TOTAL' /tmp/coverage.log | awk '{print $NF}' | tr -d '%')
+        if [ -n "${coverage_pct}" ]; then
+            # Use bc for float comparison; fall back to integer if bc is unavailable
+            threshold=90
+            if command -v bc >/dev/null 2>&1; then
+                if [ "$(echo "${coverage_pct} >= ${threshold}" | bc)" -eq 1 ]; then
+                    ok "coverage ≥ ${threshold}% (${coverage_pct}%)"
+                else
+                    no "coverage < ${threshold}% (${coverage_pct}%)"
+                fi
+            else
+                # Integer comparison (90.5 -> 90)
+                coverage_int=${coverage_pct%.*}
+                if [ "${coverage_int}" -ge "${threshold}" ]; then
+                    ok "coverage ≥ ${threshold}% (~${coverage_int}%)"
+                else
+                    no "coverage < ${threshold}% (~${coverage_int}%)"
+                fi
+            fi
+        fi
+    else
+        skip "coverage report (ansible-test coverage not available)"
+        cat /tmp/coverage.log 2>/dev/null || true
     fi
 else
     skip "no unit tests yet (add tests/unit/plugins/modules/test_*.py)"

@@ -217,6 +217,9 @@ class AnsibleFailJson(Exception):
 
 def set_module_args(args):
     basic._ANSIBLE_ARGS = to_bytes(json.dumps({"ANSIBLE_MODULE_ARGS": args}))
+    # ansible-core 2.19+ requires a serialization profile alongside the args buffer
+    if hasattr(basic, "_ANSIBLE_PROFILE"):
+        basic._ANSIBLE_PROFILE = "legacy"
 
 
 def exit_json(self, **kwargs):
