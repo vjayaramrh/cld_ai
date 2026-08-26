@@ -29,3 +29,12 @@ repos:
         name: ansible-lint
         # Lint the collection plugins/metadata; skip the generated test output.
         exclude: '^tests/output/'
+
+  - repo: local
+    hooks:
+      - id: no-commit-to-main
+        name: Don't commit to main branch
+        entry: .githooks/pre-commit
+        language: script
+        pass_filenames: false
+        always_run: true

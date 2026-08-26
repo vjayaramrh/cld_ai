@@ -116,8 +116,8 @@ amazon.aws (`ec2_instance` + `ec2_instance_info`), kubernetes.core (`k8s` +
 - **Secrets:** module params with `no_log=True` (and/or env), documented
   consistently; never committed.
 - **ansible-core matrix:** `requires_ansible >= 2.17`; CI tests stable-2.17,
-  stable-2.18, stable-2.19, and `devel`; sanity ignore files exist per supported
-  stable version and stay in sync.
+  stable-2.18, and stable-2.19; sanity ignore files exist per supported version
+  and stay in sync.
 - **Testing:** units always (API mocked); integration selectively — the
   unit/integration mix is defined in [§7](#7-testing-strategy--unit-vs-integration).
   No live calls or credentials in CI, ever. Coverage ≥90% enforced (execution-based

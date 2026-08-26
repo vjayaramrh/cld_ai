@@ -21,6 +21,7 @@ build_ignore:
   - .github
   - .claude
   - .devcontainer
+  - .githooks
   - .yamllint
   - .pre-commit-config.yaml
   - .coderabbit.yaml
