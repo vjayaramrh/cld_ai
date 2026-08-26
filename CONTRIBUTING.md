@@ -2,6 +2,8 @@
 
 Thanks for contributing to `openshift_lab.assisted_installer`.
 
+**New contributor?** Start with [docs/contributor-quick-start.md](docs/contributor-quick-start.md) for a 4-week tutorial and FAQ. This document is the official reference for requirements and workflow.
+
 ## Before you start
 
 Read [CLAUDE.md](CLAUDE.md) (conventions) and [DESIGN.md](DESIGN.md) (scope,
