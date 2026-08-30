@@ -28,6 +28,24 @@ For the target resource, record from the spec:
 - **RPC-style action** (install/reset/cancel/bind/unbind) → check current status
   first; no-op if already in the target state.
 
+## 2a. Verify the API contract (before coding)
+
+**Do not assume how the API behaves — look it up.** Read the endpoint documentation
+(not just path/method) and check edge cases:
+
+- **For actions**: What state transitions are valid? Can you `bind` a host already
+  bound to a different cluster, or must you `unbind` first? Can you `install` when
+  status is `error`? **Query the spec or API docs to confirm.** Do not guess.
+- **For state modules**: What fields are immutable? What happens if you PATCH
+  `cpu_architecture` on an existing infra-env? The module should detect and reject
+  this *before* making the API call.
+- **For all modules**: Which fields are write-only (pull_secret, keys)? These must
+  be excluded from drift comparison — the API never returns them.
+
+See `plugins/modules/host_action.py` for an action module that rejects rebinding
+(line ~187: "cannot rebind without unbinding first") — this logic came from
+verifying the API contract, not guessing.
+
 ## 3. Use the shared client — do not reinvent HTTP/auth
 
 `plugins/module_utils/assisted_installer.py` provides:

@@ -111,6 +111,60 @@ read it before adding a module.
     Execution-based coverage complements CodeRabbit's pattern-based review.
 - **Secrets never committed** (tokens, `pull_secret`) — see `.gitignore`.
 
+## Before you commit: verification checklist
+
+Run through this **BEFORE** marking your PR ready. This catches what automated
+tools might miss:
+
+### 1. Documentation completeness
+- [ ] **RETURN documents EVERY field from `exit_json`** — Run your module, capture
+  the actual result dict, compare it to your RETURN block. Don't document only
+  the domain object; include `changed`, `msg`, and any other fields you return.
+- [ ] **EXAMPLES cover all major paths** — Not just the happy path. Include:
+  - *info*: basic query + filtered query + register/debug usage
+  - *state*: create, update (drift), delete, check-mode, comment that 2nd run is `changed=false`
+  - *action*: each action verb + the status it guards on
+- [ ] **Author format is valid** — `author:\n  - Name (@githubhandle)` (bare names fail sanity)
+
+### 2. API contract verification
+- [ ] **Read the OpenAPI spec** for edge cases you might have missed. Don't assume;
+  look it up in `docs/api-endpoint-map.md` and the upstream spec.
+- [ ] **For actions: verify valid state transitions** — Can you `bind` a host that's
+  already bound to a different cluster? Can you `install` when status is `error`?
+  Query the API docs to confirm. For executable checks, use a local mock server
+  through `base_url`; never contact the production API. **Don't guess.**
+- [ ] **For state: test immutable fields** — What happens if you PATCH `cpu_architecture`
+  on an existing infra-env? The module should fail before the write, not send
+  a request that the API rejects.
+- [ ] **Write-only fields are excluded from drift** — `pull_secret`, keys, tokens:
+  send on create, never compare (API doesn't return them).
+
+### 3. Test pattern verification
+- [ ] **Idempotency tests run the action TWICE** — Not "start already in target state."
+  The test should: state A → action → state B → **same action again** → still B
+  (changed=False, no second POST). See `test_bind_twice_second_is_noop` in
+  `test_host_action.py` as the reference.
+- [ ] **Check-mode tests verify NO write** — Count HTTP calls: should be only GET,
+  never POST/PATCH/DELETE when `check_mode=True`.
+- [ ] **Safety guards test the REAL error** — If testing "install when not bound,"
+  the mock host must actually have `cluster_id=None`. Don't test "close enough"
+  conditions that happen to trigger a different error.
+- [ ] **All 5 test categories covered** — Lifecycle, idempotency, check-mode,
+  safety guards, API contract (see DESIGN.md §7 and `docs/testing-cheat-sheet.md`).
+
+### 4. Run the verification suite
+```bash
+./run.sh --check    # Must pass: build, sanity, units, coverage ≥90%
+```
+
+If sanity or units fail, **read the error**. If coverage is <90%, **add tests for
+the missing branches** (not just lines). The coverage report shows you exactly
+which conditional paths are untested.
+
+This checklist prevents "CodeRabbit caught what we missed" situations. The automated
+tools (sanity, units, coverage) verify structure and execution; this checklist
+verifies **correctness against the API contract and idempotency model**.
+
 ## Container workflow
 
 Everything runs in a container (Docker or Podman) — no host deps. Verify with:

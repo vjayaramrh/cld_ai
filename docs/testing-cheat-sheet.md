@@ -89,6 +89,21 @@ def test_absent_deletes_when_exists(monkeypatch):
 
 Tests that running the module twice with the same inputs doesn't change anything the second time.
 
+**⚠️ IMPORTANT: Run the action TWICE in the SAME test**
+
+The strongest idempotency test pattern is:
+1. Start in state A (e.g., host unbound)
+2. Run action → verify changed=True, state becomes B (host bound)
+3. **Run SAME action again** → verify changed=False, still B (no second POST)
+
+This proves: action → same action = no-op. See `test_bind_twice_second_is_noop`
+in `test_host_action.py` for the reference pattern.
+
+The simpler "start already in target state" pattern (below) is valid but weaker —
+it proves "already done = no-op" but not "action → action = no-op."
+
+---
+
 **State module (no-op when already correct):**
 ```python
 def test_present_no_drift_is_unchanged(monkeypatch):
@@ -143,6 +158,45 @@ def test_action_when_already_done_is_unchanged(monkeypatch):
     assert exc.value.args[0]['changed'] is False
     assert len(calls) == 1  # Only GET, no action POST
 ```
+
+**STRONGER: Run action twice (recommended pattern):**
+```python
+def test_bind_twice_second_is_noop(monkeypatch):
+    """Bind unbound host, then bind again → first changes, second doesn't."""
+    calls = []
+    monkeypatch.setattr(ai, "fetch_url", queue_fetch_url([
+        # First run: bind
+        (200, {"id": "host-1", "status": "known", "cluster_id": None}),     # GET: unbound
+        (202, {}),                                                           # POST: bind action
+        (200, {"id": "host-1", "status": "known", "cluster_id": "c-1"}),    # GET: fetch updated
+        # Second run: same action, already bound
+        (200, {"id": "host-1", "status": "known", "cluster_id": "c-1"}),    # GET: already bound
+    ], calls=calls))
+    
+    args = {
+        'infra_env_id': 'infra-1',
+        'host_id': 'host-1',
+        'action': 'bind',
+        'cluster_id': 'c-1',
+        'api_token': 'test-token',
+    }
+    
+    # First run: should bind (changed=True)
+    set_module_args(args)
+    with pytest.raises(AnsibleExitJson) as exc:
+        my_module.main()
+    assert exc.value.args[0]['changed'] is True
+    
+    # Second run: already bound (changed=False, no POST)
+    set_module_args(args)
+    with pytest.raises(AnsibleExitJson) as exc:
+        my_module.main()
+    assert exc.value.args[0]['changed'] is False
+    assert len(calls) == 4  # GET, POST, GET, GET (no second POST!)
+```
+
+This pattern proves: action → same action = no-op. Stronger than just
+"start already done."
 
 ---
 
