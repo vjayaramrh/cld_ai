@@ -1,6 +1,9 @@
 # Contributor Quick Start
 
-**Tutorial for new contributors - your first module in 4 weeks!**
+**Step-by-step guide to your first module contribution.**
+
+> **Time estimate:** Most people complete these steps in 1-4 weeks, depending on
+> their background. Go at your own pace—some steps might take hours, others days.
 
 > **Official process:** See [CONTRIBUTING.md](../CONTRIBUTING.md) for requirements, testing strategy, and PR workflow.  
 > **Design rationale:** See [DESIGN.md](../DESIGN.md) for idempotency patterns and architecture decisions.
@@ -13,39 +16,82 @@ Ansible modules that automate OpenShift cluster deployment via the Red Hat Assis
 
 **Result:** Infrastructure-as-code instead of clicking through UIs.
 
-**Current status:** 2 modules done, 5 remaining in Phase 1.
+**Current status:** 3 modules done (info, state, action), 4 remaining in Phase 1.
 
 ---
 
-## 🚀 Your First Module (4-week plan)
+## Prerequisites
 
-### Week 1: Get Familiar
+Before you start, make sure you have:
 
-**Goal:** Understand the codebase and tooling
+- [ ] **Basic Python knowledge** - variables, functions, if/else statements
+- [ ] **Git installed and configured**
+- [ ] **Docker or Podman** installed
+
+**New to Ansible module development?** Start with the 
+[ansible-module-workshop](https://github.com/vjayaramrh/ansible-module-workshop) 
+to learn module fundamentals (argument_spec, exit_json, idempotency). Then come 
+back here to apply those concepts to this collection.
+
+**Know Ansible modules but new to this codebase?** Jump straight to Step 1 below.
+
+---
+
+## 🚀 Your First Module (Step-by-Step)
+
+### Step 1: Learn the Foundations
+
+**Goal:** Understand the tools and patterns used in this codebase.
+
+**First, clone and verify setup works:**
 
 ```bash
-# Clone and verify setup works
 git clone https://github.com/vjayaramrh/cld_ai.git
 cd cld_ai
 ./run.sh --check   # Expected: passed: 4 failed: 0
 ```
 
-**Read in order:**
-1. [CLAUDE.md](../CLAUDE.md) - conventions (15 min)
-2. [DESIGN.md](../DESIGN.md) - patterns (15 min)
-3. [CONTRIBUTING.md](../CONTRIBUTING.md) - workflow (10 min)
-4. `plugins/modules/openshift_version_info.py` - simplest module (59 lines)
-5. `tests/unit/plugins/modules/test_openshift_version_info.py` - simplest tests
-6. [docs/testing-cheat-sheet.md](testing-cheat-sheet.md) - test patterns reference (5 min)
+**Then, read these primers (in order):**
 
-**By end of week:**
+1. **[python-primer.md](python-primer.md)** - Python constructs we actually use (30 min)
+   - Dictionaries, f-strings, truthiness, guard clauses
+   - Self-assessment checklist to verify you're ready
+   
+2. **[pytest-primer.md](pytest-primer.md)** - How our tests work (30 min)
+   - monkeypatch, pytest.raises, queue_fetch_url
+   - Reading test failures, coverage interpretation
+
+3. **[DESIGN.md](../DESIGN.md)** - Architecture and idempotency patterns (20 min)
+   - Three patterns: info (read-only), state (declarative), action (RPC verbs)
+   - Per-resource classification
+
+4. **[CLAUDE.md](../CLAUDE.md)** - Coding conventions (20 min)
+   - Module requirements, testing rules, verification checklist
+   - What to check before committing
+
+5. **[testing-cheat-sheet.md](testing-cheat-sheet.md)** - Quick reference (10 min)
+   - The 5 test categories with code examples
+   - Common patterns you'll copy-paste
+
+**Then, read example code:**
+
+6. `plugins/modules/openshift_version_info.py` - Simplest info module (59 lines)
+7. `tests/unit/plugins/modules/test_openshift_version_info.py` - Simplest tests
+8. `plugins/modules/host_action.py` - Reference action module (shows guard-on-status pattern)
+
+**Verify you're ready:**
+
 - [ ] Can run `./run.sh --check` successfully
-- [ ] Understand the 3 module types (info, state, action)
-- [ ] Know where tests go and what the 5 categories are
+- [ ] Can explain what `monkeypatch` does
+- [ ] Can identify the 3 idempotency patterns (info, state, action)
+- [ ] Know what the 5 test categories are
+- [ ] Understand what `queue_fetch_url` is for
+
+**Time estimate:** 2-4 hours for reading + running verification
 
 ---
 
-### Week 2: Claim & Scaffold
+### Step 2: Claim & Scaffold
 
 **Goal:** Choose your module and generate the skeleton
 
@@ -80,14 +126,14 @@ cp tests/unit/plugins/modules/test_openshift_version_info.py \
 
 **Read the API spec** for your endpoint (see `docs/api-endpoint-map.md`)
 
-**By end of week:**
+**Checkpoint - you're ready for the next step when:**
 - [ ] Issue claimed and assigned
 - [ ] Skeleton code generated
 - [ ] Know what API endpoint you're wrapping
 
 ---
 
-### Week 3: Implement & Test
+### Step 3: Implement & Test
 
 **Goal:** Write the module and get to 90% coverage
 
@@ -108,7 +154,7 @@ cp tests/unit/plugins/modules/test_openshift_version_info.py \
 - Compare against `infra_env.py` (reference implementation for state modules)
 - Check test examples in `tests/unit/plugins/modules/`
 
-**By end of week:**
+**Checkpoint - you're ready for the next step when:**
 - [ ] Module code complete
 - [ ] Tests written and passing
 - [ ] Coverage ≥90%
@@ -116,7 +162,7 @@ cp tests/unit/plugins/modules/test_openshift_version_info.py \
 
 ---
 
-### Week 4: Submit & Iterate
+### Step 4: Submit & Iterate
 
 **Goal:** Open PR and address reviews
 
@@ -140,7 +186,7 @@ git push origin module/YOUR_MODULE
 3. Human reviews (requires 1 approval to merge)
 4. Merge! The issue auto-closes
 
-**By end of week:**
+**Checkpoint - you're ready for the next step when:**
 - [ ] PR opened and linked to issue
 - [ ] All CI checks green
 - [ ] Review comments addressed
@@ -309,9 +355,16 @@ After Phase 1 (7 modules), users can write playbooks like this:
 
 ## 🚀 Ready to Start?
 
-1. Week 1: Read docs, run `./run.sh --check`
-2. Week 2: Claim issue #9 or #10, scaffold the module
-3. Week 3: Implement and test (≥90% coverage)
-4. Week 4: Open PR, address reviews, merge!
+**Quick summary - the path ahead:**
 
-**First module is the hardest - you've got this! 🎉**
+1. **Step 1:** Learn foundations (2-4 hours) → Read primers, verify setup works
+2. **Step 2:** Claim & scaffold (1-2 hours) → Pick an issue, generate skeleton
+3. **Step 3:** Implement & test (4-12 hours) → Write code, reach 90% coverage
+4. **Step 4:** Submit & iterate (2-6 hours) → Open PR, address reviews, merge!
+
+**Total time:** 1-4 weeks depending on your pace and prior experience.
+
+**First module is the hardest** - you're learning the patterns, tooling, and API.  
+**Second module is much faster** - you already know the workflow!
+
+**You've got this! 🎉**
