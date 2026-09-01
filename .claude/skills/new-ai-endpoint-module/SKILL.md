@@ -43,7 +43,7 @@ For the target resource, record from the spec:
   be excluded from drift comparison — the API never returns them.
 
 See `plugins/modules/host_action.py` for an action module that rejects rebinding
-(line ~187: "cannot rebind without unbinding first") — this logic came from
+(search for "Unbind it first" in `needs_action()`) — this logic came from
 verifying the API contract, not guessing.
 
 ## 3. Use the shared client — do not reinvent HTTP/auth

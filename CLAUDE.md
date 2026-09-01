@@ -111,6 +111,36 @@ read it before adding a module.
     Execution-based coverage complements CodeRabbit's pattern-based review.
 - **Secrets never committed** (tokens, `pull_secret`) — see `.gitignore`.
 
+## Documentation authoring guidelines
+
+When writing docs (primers, guides, CONTRIBUTING.md, etc.), keep references stable:
+
+- **❌ Never use exact line numbers** — "line 180", "lines 234-250" go stale as code changes.
+- **✅ Use function/section names** — "in `needs_action()` function", "see `run_module()`"
+- **✅ Use searchable patterns** — "search for `status.lower()`", "the bind guard logic"
+- **✅ Add context** — "in the `needs_action()` function (validates action preconditions)"
+
+**For rare cases needing exact references:**
+- Use GitHub permalinks with commit SHA: `https://github.com/vjayaramrh/cld_ai/blob/49bc462/plugins/modules/host_action.py#L180-L182`
+- These stay valid forever even as code moves
+
+**Examples:**
+
+```markdown
+# ❌ Stale-prone
+See line 180 in host_action.py
+See lines ~234-250 for argument_spec
+
+# ✅ Stable
+Search for `status.lower()` in the `needs_action()` function (host_action.py)
+See `argument_spec` in the `run_module()` function (host_action.py)
+```
+
+This applies to:
+- Primer documents (python-primer.md, pytest-primer.md)
+- Contributor guides (contributor-quick-start.md)
+- Any documentation referencing code
+
 ## Before you commit: verification checklist
 
 Run through this **BEFORE** marking your PR ready. This catches what automated
