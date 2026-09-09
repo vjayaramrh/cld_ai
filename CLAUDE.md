@@ -81,7 +81,21 @@ read it before adding a module.
     that sanity does NOT check — scale it to the module's complexity (a trivial
     module needs less than `cluster`), and don't duplicate integration coverage.
 - **Author**: `- Name (@githubhandle)` (bare names fail sanity).
-- Validate params/shapes against the OpenAPI spec — it is the source of truth.
+- **Validate params/shapes against the OpenAPI spec** — it is the source of truth.
+  **BEFORE coding**, query the spec to document what the endpoint requires:
+  ```bash
+  # Query the spec for your endpoint (adjust method: get, post, patch, delete)
+  curl -s "https://api.openshift.com/api/assisted-install/v2/openapi" | \
+    jq '.paths."/v2/your-endpoint".METHOD.parameters'
+  
+  # Example for GET with query params
+  jq '.paths."/v2/openshift-versions".get.parameters'
+  
+  # Example for POST with body schema
+  jq '.paths."/v2/infra-envs".post.parameters[] | select(.in == "body") | .schema'
+  ```
+  Document the findings in the issue or commit message. Never assume parameter names,
+  types, or whether they're required — the spec is authoritative.
 
 ## Project / governance
 
@@ -194,6 +208,29 @@ which conditional paths are untested.
 This checklist prevents "CodeRabbit caught what we missed" situations. The automated
 tools (sanity, units, coverage) verify structure and execution; this checklist
 verifies **correctness against the API contract and idempotency model**.
+
+### 5. Consider documenting lessons learned
+
+**Not required for every PR** — only when your work reveals something worth sharing:
+
+- **When to add to `docs/lessons-learned.md`:**
+  - Discovered a gap in our process or documentation
+  - Found a bug that points to a systemic issue
+  - Made a non-obvious design decision future contributors should know
+  - Encountered API behavior that wasn't obvious from the spec
+  - Implemented a workaround that needs explaining
+  - Learned something the hard way that others can avoid
+
+- **What NOT to log:**
+  - Simple bugs fixed in normal development
+  - Expected test failures
+  - Individual module implementation details (commit messages cover these)
+
+**Format:** See the template at the bottom of `docs/lessons-learned.md`
+
+**Example:** PR #28 added an entry for "API Spec Verification Gap" — we assumed
+endpoint parameters without checking the spec, discovered the gap, and implemented
+a verification workflow. Future contributors benefit from knowing this happened.
 
 ## Container workflow
 
