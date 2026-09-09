@@ -2,6 +2,14 @@
 
 **Use this template BEFORE coding a new module** to verify the endpoint contract.
 
+**How to use:**
+1. Copy the sections below to guide your verification queries
+2. Fill in the findings as you query the OpenAPI spec
+3. **Post your completed verification as a comment on the module's issue**
+4. **Do NOT commit this as a separate file** - it's a checklist, not a deliverable
+
+**Example:** See [issue #13](https://github.com/vjayaramrh/cld_ai/issues/13) for a completed verification.
+
 ## Module: [module_name]
 
 ### Endpoint Information

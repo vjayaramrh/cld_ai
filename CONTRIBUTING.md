@@ -53,8 +53,9 @@ and the repo is set up so it does the right thing by default:
   Review what Claude generates against these before you commit.
 - **You own correctness.** Read the diff, run the checks below, and verify against
   the spec using [docs/api-verification-template.md](docs/api-verification-template.md)
-  (query the OpenAPI spec to confirm parameters, types, and requirements) — generated
-  code is a starting point, not a merge-ready artifact.
+  as a checklist (query the OpenAPI spec to confirm parameters, types, and requirements).
+  Post your findings as a comment on the module's issue — do not commit the verification
+  as a separate file. Generated code is a starting point, not a merge-ready artifact.
 
 ## Testing (required)
 
