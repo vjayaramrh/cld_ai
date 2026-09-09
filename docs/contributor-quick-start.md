@@ -99,11 +99,11 @@ cd cld_ai
 
 | Module | Difficulty | Type | Issue |
 |--------|-----------|------|-------|
-| `support_level_info` | 🟢 Easiest | Info | #12 |
 | `supported_operator_info` | 🟢 Easiest | Info | #13 |
 | `cluster_info` | 🟡 Medium | Info | #10 |
+| `support_level_info` | 🟡 Medium | Info | #12 |
 
-**Recommendation:** Start with #12 or #13 (read-only, no state management)
+**Recommendation:** Start with #13 (read-only, simplest API contract)
 
 **Claim it:**
 1. Go to the issue
@@ -124,12 +124,18 @@ cp tests/unit/plugins/modules/test_openshift_version_info.py \
    tests/unit/plugins/modules/test_YOUR_MODULE.py
 ```
 
-**Read the API spec** for your endpoint (see `docs/api-endpoint-map.md`)
+**Verify the API contract** using [api-verification-template.md](api-verification-template.md):
+```bash
+# Query the OpenAPI spec to discover endpoint parameters
+curl -s "https://api.openshift.com/api/assisted-install/v2/openapi" | \
+  jq '.paths."/v2/your-endpoint".get.parameters'
+```
+Document findings before coding to avoid parameter mismatches.
 
 **Checkpoint - you're ready for the next step when:**
 - [ ] Issue claimed and assigned
 - [ ] Skeleton code generated
-- [ ] Know what API endpoint you're wrapping
+- [ ] API contract verified (parameters, types, required vs optional documented)
 
 ---
 

@@ -12,12 +12,30 @@ idempotency model. This skill wires a new module to *this* API.
 ## 1. Look up the endpoint in the spec (source of truth)
 
 Spec: `https://api.openshift.com/api/assisted-install/v2/openapi` (Swagger 2.0).
-For the target resource, record from the spec:
+
+**FIRST, query the spec** to discover what the endpoint actually requires:
+```bash
+# For a GET endpoint with query params
+curl -s "https://api.openshift.com/api/assisted-install/v2/openapi" | \
+  jq '.paths."/v2/your-endpoint".get.parameters'
+
+# For a POST endpoint - inspect the body parameter's schema
+curl -s "https://api.openshift.com/api/assisted-install/v2/openapi" | \
+  jq '.paths."/v2/your-endpoint".post.parameters[] | select(.in == "body") | .schema'
+
+# If the schema uses $ref, resolve it
+curl -s "https://api.openshift.com/api/assisted-install/v2/openapi" | \
+  jq '.definitions."infra-env-create-params" | {required, properties: .properties | keys}'
+```
+
+**Document what you find:**
 - path(s) and methods (GET list / GET by-id / POST / PATCH / DELETE / actions)
-- **required** request-body fields (e.g. cluster-create needs
-  `name`, `openshift_version`, `pull_secret`)
-- query parameters for list endpoints
+- **required** vs optional parameters (query params, path params, body fields)
+- parameter types and allowed values (enums/choices)
 - the response shape (for `RETURN`)
+
+**Never assume** — parameter names can be surprising (e.g., `openshift_version` required
+for support-levels endpoints). The spec is authoritative.
 
 ## 2. Classify the resource (drives the skeleton) — see DESIGN.md §4
 
@@ -144,3 +162,15 @@ Every state module should cover all 5 categories.
 ```
 
 Keep `meta/runtime.yml`, the CI matrix, and `tests/sanity/ignore-*.txt` in sync.
+
+## 7. Document non-obvious discoveries (when applicable)
+
+If you discovered something unexpected or learned something the hard way while
+implementing this module, consider adding an entry to `docs/lessons-learned.md`:
+
+- API behavior that wasn't obvious from the spec
+- Parameter combinations that have special requirements
+- Edge cases that required workarounds
+- Process gaps that this work revealed
+
+See CLAUDE.md "Before you commit: verification checklist" §5 for when to add an entry.

@@ -52,8 +52,9 @@ and the repo is set up so it does the right thing by default:
   for state; each verb + its status guard for actions (CLAUDE.md, DESIGN.md §4).
   Review what Claude generates against these before you commit.
 - **You own correctness.** Read the diff, run the checks below, and verify against
-  the spec (`docs/api-endpoint-map.md` and the OpenAPI doc) — generated code is a
-  starting point, not a merge-ready artifact.
+  the spec using [docs/api-verification-template.md](docs/api-verification-template.md)
+  (query the OpenAPI spec to confirm parameters, types, and requirements) — generated
+  code is a starting point, not a merge-ready artifact.
 
 ## Testing (required)
 
@@ -136,5 +137,8 @@ pre-commit run --all-files
 - **Coverage ≥90%** verified locally via `./run.sh --check` before opening PR.
 - **Link the PR to its module issue** with `Closes #<n>` — merging then closes the
   issue and the board moves it to **Done** automatically.
+- **Lessons learned (when applicable):** If your work uncovered a process gap, non-obvious
+  API behavior, or systemic issue, add an entry to `docs/lessons-learned.md`. Not required
+  for routine module work — see CLAUDE.md §5 for when to document.
 - [CodeRabbit](https://github.com/apps/coderabbitai) reviews PRs automatically
   (config in `.coderabbit.yaml`); treat its comments as advisory.
