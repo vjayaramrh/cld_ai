@@ -132,8 +132,8 @@ approved tests.
 **Why TDD:**
 - Tests become executable specification (not post-hoc justification)
 - Catches wrong interpretations BEFORE code is written
-- Research: +15.6% improvement in task success (builder-validator chains)
-- Prevents "silent gray errors" (75% of failures pass tests but have wrong logic)
+- Builder-validator chains show +15.6% improvement in research
+- Addresses "silent gray errors" (research: 75.17% of failures pass tests but have wrong logic)
 
 **When to use TDD:**
 - ✅ State modules (create/update/delete complexity)

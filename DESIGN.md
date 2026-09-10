@@ -170,14 +170,18 @@ the module. Tests become the executable specification rather than post-hoc valid
 
 **TDD approach:**
 1. Verify API contract (query OpenAPI spec, document findings)
-2. Generate tests based on spec (all 5 categories)
+2. Generate tests based on spec (all applicable categories per module type)
 3. **Human approves tests** (verify tests match spec, not agent interpretation)
 4. Generate module to satisfy approved tests
 5. Run gates (should pass immediately)
 
+**Note:** All module types use the same 5 categories (lifecycle, idempotency, check-mode,
+safety guards, API contract); what varies is the specific tests within each category.
+See §7 "Units — every module, always" for the required cases per module type.
+
 **Quality improvement:**
-- Research shows +15.6% improvement with builder-validator chains
-- Prevents 75% of "gray errors" (tests pass, wrong business logic)
+- Builder-validator chains show +15.6% improvement in research
+- Addresses "gray errors" (research: 75.17% of failures pass tests but have wrong logic)
 - Tests define WHAT to build; module generation satisfies HOW
 - Faster iteration (fix module to pass stable tests)
 

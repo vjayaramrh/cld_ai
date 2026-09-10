@@ -165,11 +165,16 @@ code passes tests but implements the wrong behavior.
 
 **TDD workflow:**
 1. Verify API spec (query OpenAPI, document findings)
-2. **Generate tests ONLY** (all 5 categories, based on spec)
+2. **Generate tests ONLY** (all applicable categories for module type, based on spec)
 3. **Human approves tests** (verify tests match spec, not agent's interpretation)
 4. Generate module to pass approved tests
 5. Run `./run.sh --check` (should pass quickly)
 6. Light human verification (tests verified the contract)
+
+**Test categories by module type:**
+- Info modules: lifecycle, idempotency (always changed=False), check-mode, safety guards, API contract
+- State modules: lifecycle (create/update/delete), idempotency (no-op), check-mode, safety guards, API contract
+- Action modules: lifecycle (action verbs), idempotency (status guards), check-mode, safety guards, API contract
 
 **When to use TDD:**
 - ✅ State modules (create/update/delete complexity)
@@ -180,8 +185,8 @@ code passes tests but implements the wrong behavior.
 **Why TDD improves quality:**
 - Tests become executable specification (not post-hoc justification)
 - Catches wrong interpretations BEFORE code is written
-- Research: +15.6% improvement in task success (builder-validator chains)
-- Prevents 75% of "gray errors" (pass tests, wrong business logic)
+- Research shows builder-validator chains achieve +15.6% improvement in task success
+- Addresses "gray errors" (research: 75.17% of failures pass tests but have wrong logic)
 
 See issue #32 for full TDD adoption rationale and research backing.
 

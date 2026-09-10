@@ -110,19 +110,24 @@ cd cld_ai
 2. Comment "I'll work on this"
 3. Assign to yourself
 
-**Scaffold it:**
+**Scaffold it (optional for TDD workflow):**
 
 Option A - Claude Code (faster):
 ```
 /new-ai-endpoint-module
 ```
 
-Option B - Manual copy:
+Option B - Manual copy (for traditional workflow):
 ```bash
+# For TDD: skip module copy, only copy test template if desired
+# For traditional: copy both files
 cp plugins/modules/openshift_version_info.py plugins/modules/YOUR_MODULE.py
 cp tests/unit/plugins/modules/test_openshift_version_info.py \
    tests/unit/plugins/modules/test_YOUR_MODULE.py
 ```
+
+**Note:** If using TDD (Step 3), you'll write tests first from scratch based on spec
+verification. Skeleton generation is optional and mainly for traditional workflow.
 
 **Verify the API contract** using [api-verification-template.md](api-verification-template.md):
 ```bash
@@ -149,7 +154,7 @@ For higher quality and confidence, write tests FIRST, get them approved, then wr
 
 **TDD workflow:**
 1. **Write tests only** (based on your spec verification from Step 2)
-   - All 5 test categories (see [testing-cheat-sheet.md](testing-cheat-sheet.md))
+   - All applicable test categories (see [testing-cheat-sheet.md](testing-cheat-sheet.md) for which apply to your module type)
    - Tests verify the spec, not an implementation
 2. **Review tests** - Verify they match your spec findings
    - Do assertions match API contract?
@@ -160,7 +165,7 @@ For higher quality and confidence, write tests FIRST, get them approved, then wr
 
 **Why TDD?**
 - ✅ Tests are YOUR specification (not agent's interpretation)
-- ✅ Catches wrong behavior BEFORE coding (+15.6% success improvement)
+- ✅ Catches wrong behavior BEFORE coding (research shows builder-validator chains improve success)
 - ✅ Faster iteration (fix module to pass stable tests)
 - ✅ Recommended for: state modules, complex modules, first of a pattern
 
@@ -172,7 +177,7 @@ Write module and tests together:
 2. Add any filter parameters (if the API supports them)
 3. Write the DOCUMENTATION block (parameters, return values)
 4. Write EXAMPLES showing: basic query, filtered query, register + debug
-5. Write tests for the 5 categories
+5. Write tests for applicable categories (see [testing-cheat-sheet.md](testing-cheat-sheet.md))
 6. Iterate until both pass
 
 **Run the checks:**
