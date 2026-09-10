@@ -136,3 +136,15 @@ def test_non_200_fails_with_status(monkeypatch):
     )
     assert isinstance(exc, AnsibleFailJson)
     assert exc.result["status"] == 401
+
+
+def test_invalid_response_shape_fails(monkeypatch):
+    # API returns dict instead of list (contract violation)
+    exc = _run(
+        monkeypatch,
+        status=200,
+        body={"error": "something went wrong"},
+        args={"api_token": "t"},
+    )
+    assert isinstance(exc, AnsibleFailJson)
+    assert "invalid response body" in exc.result["msg"].lower()

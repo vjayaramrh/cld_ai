@@ -148,7 +148,7 @@ This requires:
 5. Document in DESIGN.md
 6. Update existing modules if needed
 
-**Opened:** Issue to track this work (to be created)
+**Tracking:** Issue #30 - Design comprehensive error-handling strategy for HTTP status codes
 
 **Lesson learned:**
 

@@ -151,7 +151,12 @@ def main():
         )
 
     # API returns data directly (list of strings or list of objects)
-    operators = data if isinstance(data, list) else []
+    if not isinstance(data, list):
+        module.fail_json(
+            msg="Supported operators API returned an invalid response body",
+            body=data,
+        )
+    operators = data
 
     result = {
         "changed": False,
