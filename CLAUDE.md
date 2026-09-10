@@ -155,6 +155,41 @@ This applies to:
 - Contributor guides (contributor-quick-start.md)
 - Any documentation referencing code
 
+## Module authoring workflow
+
+**Recommended: Test-Driven Development (TDD)**
+
+For quality-critical modules, generate and approve tests FIRST, then write the module
+to satisfy the approved tests. This prevents "silent gray errors" where generated
+code passes tests but implements the wrong behavior.
+
+**TDD workflow:**
+1. Verify API spec (query OpenAPI, document findings)
+2. **Generate tests ONLY** (all applicable categories for module type, based on spec)
+3. **Human approves tests** (verify tests match spec, not agent's interpretation)
+4. Generate module to pass approved tests
+5. Run `./run.sh --check` (should pass quickly)
+6. Light human verification (tests verified the contract)
+
+**Test categories by module type:**
+- Info modules: lifecycle, idempotency (always changed=False), check-mode, safety guards, API contract
+- State modules: lifecycle (create/update/delete), idempotency (no-op), check-mode, safety guards, API contract
+- Action modules: lifecycle (action verbs), idempotency (status guards), check-mode, safety guards, API contract
+
+**When to use TDD:**
+- ✅ State modules (create/update/delete complexity)
+- ✅ Complex modules (many edge cases, query parameters)
+- ✅ First module of a new pattern
+- ⚡ Optional for simple info modules if pattern is proven
+
+**Why TDD improves quality:**
+- Tests become executable specification (not post-hoc justification)
+- Catches wrong interpretations BEFORE code is written
+- Research shows builder-validator chains achieve +15.6% improvement in task success
+- Addresses "gray errors" (research: 75.17% of failures pass tests but have wrong logic)
+
+See issue #32 for full TDD adoption rationale and research backing.
+
 ## Before you commit: verification checklist
 
 Run through this **BEFORE** marking your PR ready. This catches what automated

@@ -117,6 +117,34 @@ Then:
 
 ## 5. Tests (mock the API — no live calls)
 
+### Recommended: Test-Driven Development (TDD) Approach
+
+**For quality-critical modules** (complex modules, state modules, first of a pattern),
+generate and get approval for tests FIRST, then generate the module to satisfy the
+approved tests.
+
+**TDD workflow:**
+1. Generate ONLY the test file based on spec verification findings
+2. **STOP** - wait for human approval of tests (verify tests match spec)
+3. Generate module to pass the approved tests
+4. Run `./run.sh --check` - tests should pass (module was built to satisfy them)
+
+**Why TDD:**
+- Tests become executable specification (not post-hoc justification)
+- Catches wrong interpretations BEFORE code is written
+- Builder-validator chains show +15.6% improvement in research
+- Addresses "silent gray errors" (research: 75.17% of failures pass tests but have wrong logic)
+
+**When to use TDD:**
+- ✅ State modules (create/update/delete complexity)
+- ✅ Complex query parameters or edge cases
+- ✅ First module of a new pattern
+- ⚡ Skip for simple info modules if pattern is proven
+
+See issue #32 for full TDD adoption rationale.
+
+### Test Structure
+
 Add `tests/unit/plugins/modules/test_<module>.py`. **Mock at the `fetch_url` layer**
 (per CLAUDE.md) so the REAL shared client runs (URL building, auth, JSON parsing):
 

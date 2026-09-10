@@ -163,6 +163,35 @@ Add `tests/integration/targets/<module>/` **only where it earns its keep**:
 returning canned responses, gated so it cannot reach prod. No credentials, no
 network egress.
 
+### Test-Driven Development (TDD) workflow
+
+For quality-critical modules, **generate and approve tests FIRST** before writing
+the module. Tests become the executable specification rather than post-hoc validation.
+
+**TDD approach:**
+1. Verify API contract (query OpenAPI spec, document findings)
+2. Generate tests based on spec (all applicable categories per module type)
+3. **Human approves tests** (verify tests match spec, not agent interpretation)
+4. Generate module to satisfy approved tests
+5. Run gates (should pass immediately)
+
+**Note:** All module types use the same 5 categories (lifecycle, idempotency, check-mode,
+safety guards, API contract); what varies is the specific tests within each category.
+See §7 "Units — every module, always" for the required cases per module type.
+
+**Quality improvement:**
+- Builder-validator chains show +15.6% improvement in research
+- Addresses "gray errors" (research: 75.17% of failures pass tests but have wrong logic)
+- Tests define WHAT to build; module generation satisfies HOW
+- Faster iteration (fix module to pass stable tests)
+
+**When to use:**
+- State modules (lifecycle complexity)
+- Complex modules (many edge cases, query parameters)
+- First module of a new pattern
+
+See issue #32 for full TDD adoption rationale.
+
 ### When to build the integration layer
 Not yet. Phase 1's info modules need units only. Introduce the `base_url` param,
 the mock-server fixture, the `tests/integration/` targets, and the CI

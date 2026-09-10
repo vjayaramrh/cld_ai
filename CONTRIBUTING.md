@@ -67,6 +67,12 @@ credentials in CI.
 
 **New to testing?** See [docs/testing-cheat-sheet.md](docs/testing-cheat-sheet.md) for quick reference patterns and examples.
 
+**Test-Driven Development (TDD) recommended:** For quality-critical modules (state
+modules, complex modules, first of a pattern), write and approve tests FIRST, then
+generate the module to satisfy the approved tests. This prevents "gray errors"
+(tests pass, wrong logic). See [#32](https://github.com/vjayaramrh/cld_ai/issues/32)
+for workflow and research backing.
+
 **Integration tests are selective** — add them only for **state** and **action**
 modules (to prove the multi-step lifecycle), and only against a local mock via a
 `base_url` override, never `api.openshift.com`. `_info` modules need units only.
