@@ -6,6 +6,76 @@ A chronological journal of issues discovered, resolutions implemented, and lesso
 
 ---
 
+## 2026-09-09/10: Terminology Precision - "Agentic SDLC" vs AI-Assisted Development
+
+**Issue:** Using industry terminology imprecisely can mislead contributors about capabilities and autonomy levels.
+
+**What happened:**
+- In `docs/agentic-sdlc.md`, we described the repo's workflow as "Agentic SDLC"
+- During discussion about applying this to remaining modules, user asked me to verify industry backing
+- Research confirmed "Agentic SDLC" is a well-established 2026 industry term (Forrester, Gartner, academic)
+- **BUT** the industry definition means: autonomous agents with retry loops, multi-agent collaboration (Product Agent ↔ Coding Agent ↔ Review Agent), agent-to-agent communication, autonomous planning/execution/testing/refinement (Devin, SWE-agent)
+- User provided the precise definition: "autonomous AI agents actively participate in, and eventually orchestrate, the software engineering process"
+- What we actually implement: **human-supervised AI-assisted development** - agents generate code, gates verify, humans approve at each phase
+- We were using "agentic" to mean "agent-assisted" when industry uses it to mean "autonomous multi-agent"
+
+**Impact:**
+- Documentation claimed a level of autonomy we don't actually have
+- Could mislead contributors about what to expect
+- Risks damaging credibility if contributors discover the mismatch
+- Creates confusion about the intentional design choice (quality over speed)
+
+**How we discovered it:**
+- User asked for industry backing research
+- I searched and found extensive coverage (Forrester, Gartner, PwC, arXiv)
+- User then provided the precise industry definition
+- Revealed the terminology mismatch
+
+**Resolution implemented:**
+
+1. **Updated `docs/agentic-sdlc.md` (PR #31):**
+   - Added section: "Where this repo sits on the autonomy spectrum"
+   - Clarified industry definition vs our implementation
+   - Explained why we chose human-supervised (quality control, +41% complexity with full autonomy)
+   - Noted future evolution path (Workflow tool enables retry loops)
+   - Added terminology note: "agentic-lite" or "supervised agentic"
+
+2. **Accurate positioning:**
+   - Industry definition: Fully autonomous multi-agent orchestration
+   - This repo: Human-supervised AI-assisted development
+   - Terminology: Using "agentic SDLC" as shorthand, with explicit clarification
+
+**Lesson learned:**
+
+> **Be precise with industry terminology, especially when it's rapidly evolving.**  
+> If borrowing an industry term but implementing differently, explicitly clarify the distinction.  
+> Better to be honest about "supervised agentic" than claim "full agentic" and disappoint.
+
+**What the research actually showed:**
+- **Adoption:** 70% of software teams use GenAI across SDLC (PwC, 2026)
+- **Performance:** SWE-bench Verified: 1.96% → 78.4% (Oct 2023 → Apr 2026)
+- **Productivity:** 13.6%-55.8% time savings
+- **Quality risks:** +30% code warnings, +41% complexity (CMU study, 807 projects)
+- **Silent errors:** 75.17% of multi-agent failures are "gray errors" (pass tests, wrong logic)
+
+**Why our approach is intentional:**
+- Research validates human gates as quality control
+- +15.6% improvement with builder-validator chains (tests approved first)
+- Quality over speed is a legitimate design choice
+
+**Artifacts:**
+- PR #31: Terminology clarification in docs/agentic-sdlc.md
+- Industry research sources documented in that PR
+
+**What to do differently:**
+- When using industry terms, verify precise definitions
+- If implementing a variant, explicitly state how it differs
+- Cite research to support design choices
+- Be honest about current state vs future evolution
+- "Supervised agentic" > claiming "full agentic" without autonomy
+
+---
+
 ## 2026-09-08: API Spec Verification Gap
 
 **Issue:** No mandatory step to verify API endpoint contract before coding modules.
