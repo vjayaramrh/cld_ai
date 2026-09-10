@@ -12,6 +12,36 @@ changes is the question you're answering: not *"how do I write this?"* but *"how
 do I specify this and verify it clearly enough that an agent can build it and I
 can trust the result?"*
 
+## Where this repo sits on the autonomy spectrum
+
+**Industry definition:** Fully agentic SDLC involves autonomous agents with retry
+loops, multi-agent collaboration (Product Agent ↔ Coding Agent ↔ Review Agent),
+and agent-to-agent communication. Agents autonomously plan, execute, test, fix
+failures, and refine solutions until goals are met (e.g., Devin, SWE-agent).
+
+**This repo (current state):** **Human-supervised AI-assisted development.** Agents
+generate code and tests; automated gates verify correctness; **humans approve at
+each phase**. No autonomous retry loops yet, no multi-agent orchestration. Quality
+over speed — each gate builds confidence before proceeding.
+
+**Why this approach:**
+- **Quality control:** Research shows fully autonomous agents increase code
+  complexity +41% and warnings +30% (CMU, 2026). Human gates catch what automated
+  checks miss.
+- **Learning mode:** Contributors understand what's happening at each step rather
+  than treating agents as black boxes.
+- **Trust building:** Each successful human-gated phase builds confidence in the
+  system.
+
+**Future evolution:** The infrastructure supports moving toward full autonomy
+(source of truth, explicit rules, executable gates, Workflow orchestration), but
+**intentionally maintains human approval gates for quality**. The `Workflow` tool
+enables autonomous retry loops when quality gates are strong enough to trust them.
+
+**Terminology note:** We use "agentic SDLC" as shorthand for "agent-assisted
+development with strong verification," acknowledging we're not yet at full
+multi-agent autonomy. Think of it as "agentic-lite" or "supervised agentic."
+
 ## The mental model: author → editor-in-chief
 
 - In **traditional development** you're the *author*. You type every line, and
