@@ -190,6 +190,12 @@ code passes tests but implements the wrong behavior.
 
 See issue #32 for full TDD adoption rationale and research backing.
 
+**Model selection and cost tracking:**
+
+For operational guidance on which model to use per phase (Sonnet vs. Haiku) and
+historical cost data, see [docs/module-workflow-guide.md](docs/module-workflow-guide.md).
+All model recommendations are provisional until validated with cluster_info (#10).
+
 ## Before you commit: verification checklist
 
 Run through this **BEFORE** marking your PR ready. This catches what automated
