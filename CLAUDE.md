@@ -250,28 +250,84 @@ This checklist prevents "CodeRabbit caught what we missed" situations. The autom
 tools (sanity, units, coverage) verify structure and execution; this checklist
 verifies **correctness against the API contract and idempotency model**.
 
-### 5. Consider documenting lessons learned
+### 5. Evaluate for lessons learned (mandatory evaluation)
 
-**Not required for every PR** — only when your work reveals something worth sharing:
+**Evaluation required for EVERY PR** — even if the answer is "no lesson to record."
 
-- **When to add to `docs/lessons-learned.md`:**
-  - Discovered a gap in our process or documentation
-  - Found a bug that points to a systemic issue
-  - Made a non-obvious design decision future contributors should know
-  - Encountered API behavior that wasn't obvious from the spec
-  - Implemented a workaround that needs explaining
-  - Learned something the hard way that others can avoid
+- [ ] **Evaluated:** Is there a lesson worth documenting?
+  - **YES** → Add entry to `docs/lessons-learned.md` before merge
+  - **NO** → Note why in PR description or commit message (e.g., "routine module implementation, no process gaps discovered")
 
-- **What NOT to log:**
-  - Simple bugs fixed in normal development
-  - Expected test failures
-  - Individual module implementation details (commit messages cover these)
+**When to record a lesson:**
+- Discovered a gap in our process or documentation
+- Found a bug that points to a systemic issue
+- Made a non-obvious design decision future contributors should know
+- Encountered API behavior that wasn't obvious from the spec
+- Implemented a workaround that needs explaining
+- Learned something the hard way that others can avoid
+
+**What NOT to log:**
+- Simple bugs fixed in normal development
+- Expected test failures
+- Individual module implementation details (commit messages cover these)
+- Routine work following established patterns
 
 **Format:** See the template at the bottom of `docs/lessons-learned.md`
 
-**Example:** PR #28 added an entry for "API Spec Verification Gap" — we assumed
-endpoint parameters without checking the spec, discovered the gap, and implemented
-a verification workflow. Future contributors benefit from knowing this happened.
+**Examples of lessons recorded:**
+- PR #28: "API Spec Verification Gap" — assumed params without checking spec
+- PR #31: "Terminology Precision" — used industry term without verifying definition
+- PR #35: "Process Documentation Gap" — relied on memory instead of documented workflow
+
+**Enforcement:** This is a checklist item, not optional. The evaluation itself is mandatory;
+recording a lesson is only required when the evaluation says "yes."
+
+### 6. PR hygiene and review workflow
+
+**After opening the PR:**
+
+- [ ] **Wait for CI checks** — All must pass before merge
+- [ ] **Address CodeRabbit findings:**
+  - Read all review comments
+  - Apply fixes for valid findings
+  - Commit and push fixes
+  - **Mark each review thread as resolved** (never leave threads unresolved)
+- [ ] **Post cost breakdown** (if tracking costs for the module)
+
+**Resolving CodeRabbit review threads:**
+
+```bash
+# Get thread IDs from the PR
+gh api graphql -f query='
+query {
+  repository(owner: "vjayaramrh", name: "cld_ai") {
+    pullRequest(number: PR_NUMBER) {
+      reviewThreads(first: 10) {
+        nodes {
+          id
+          isResolved
+          comments(first: 1) {
+            nodes { body }
+          }
+        }
+      }
+    }
+  }
+}' --jq '.data.repository.pullRequest.reviewThreads.nodes[] | {id: .id, isResolved: .isResolved}'
+
+# Resolve each thread after fixing (replace THREAD_ID)
+gh api graphql -f query='
+mutation {
+  resolveReviewThread(input: {threadId: "THREAD_ID"}) {
+    thread { id isResolved }
+  }
+}'
+```
+
+**Why this matters:** Unresolved threads on a merged PR suggest fixes weren't applied
+or weren't verified. Always close the loop with reviewers by marking threads resolved.
+This is a documented workflow step, not optional — see lessons-learned.md entry
+"Process Documentation Gap - CodeRabbit Comment Resolution" (2026-09-15).
 
 ## Container workflow
 
