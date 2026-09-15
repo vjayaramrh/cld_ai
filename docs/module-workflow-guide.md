@@ -45,7 +45,7 @@ Track model usage, costs, time, and task breakdown for each module implementatio
 | 4 | Module generation | Sonnet/Haiku | 15-20m | ⚠️ TBD |
 | 5 | Gate verification (`./run.sh --check`) | Automated | 5-10m | N/A |
 | 6 | PR creation | N/A | 5m | N/A |
-| **Total** | | | **60-90m** | ⚠️ TBD |
+| **Total** | | | **60-85m** | ⚠️ TBD |
 
 **Key questions to validate:**
 - Can Haiku generate module after tests approved? (Phase 4)
@@ -133,6 +133,8 @@ Use this template when implementing a module. Track tokens at each phase boundar
 **Sonnet 4.5 pricing:**
 - Input: $3.00 per million tokens
 - Output: $15.00 per million tokens
+
+(For Haiku pricing, see [Pricing Reference](#pricing-reference) section below.)
 
 | Phase | Input Tokens | Output Tokens | Input Cost | Output Cost | Phase Total |
 |-------|--------------|---------------|------------|-------------|-------------|
