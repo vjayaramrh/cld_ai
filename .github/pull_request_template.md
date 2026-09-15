@@ -28,3 +28,20 @@ Read CLAUDE.md (conventions) and DESIGN.md (scope, phasing, idempotency) first.
       `changed=False`), check-mode
 - [ ] `meta/runtime.yml`, CI matrix, and `tests/sanity/ignore-*.txt` stay in sync
 - [ ] `./run.sh --check` is green locally (build + sanity + units)
+
+## Pre-Merge Verification
+
+<!-- Complete before marking PR ready for review (see CLAUDE.md verification checklist) -->
+
+**All PRs:**
+- [ ] All CI checks passing
+- [ ] CodeRabbit findings addressed (threads marked as resolved)
+- [ ] **Lessons-learned evaluated:** [ ] Yes - entry added to docs/lessons-learned.md | [ ] No - not applicable because: _______
+
+**Module PRs only:**
+- [ ] API contract verified against OpenAPI spec (documented findings)
+- [ ] All applicable test categories covered (see DESIGN.md §7)
+- [ ] Coverage ≥90% (shown in `./run.sh --check` output)
+- [ ] Cost breakdown posted (if tracking costs for this module)
+
+**Reference:** See [CLAUDE.md verification checklist](../CLAUDE.md#before-you-commit-verification-checklist) for detailed guidance.
