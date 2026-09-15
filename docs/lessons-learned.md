@@ -49,6 +49,12 @@ A chronological journal of issues discovered, resolutions implemented, and lesso
    - Apply fix → commit → push → **resolve thread** → merge
    - Thread resolution is part of "address the finding", not separate
 
+4. **Made lessons-learned evaluation mandatory** (PR #35):
+   - Changed section 5 from "Consider documenting" to "Evaluate (mandatory)"
+   - Required checkbox: "Evaluated: Is there a lesson worth documenting? [Yes/No + reason]"
+   - Forces explicit evaluation for every PR (even if answer is "no")
+   - Prevents the meta-gap: forgetting to evaluate if we should record a lesson
+
 **Lesson learned:**
 
 > **Critical workflow steps must be documented in CLAUDE.md, not assumed.**  
@@ -61,6 +67,7 @@ A chronological journal of issues discovered, resolutions implemented, and lesso
 - Don't rely on "I learned this" - codify it in documented process
 - Test: If the step could be forgotten when user doesn't explicitly ask, it needs documentation
 - Quality steps that depend on human memory will fail eventually
+- **Enforcement pattern:** "Evaluate X: [Yes/No + reason]" forces evaluation (vs. soft "Consider X")
 
 **Artifacts:**
 - PR #35: Add CodeRabbit resolution step to CLAUDE.md verification checklist
@@ -74,6 +81,20 @@ This is the third lessons-learned entry about **process gaps**:
 3. **Process Documentation Gap (2026-09-15) - relied on memory instead of documented steps**
 
 The meta-lesson: **Undocumented processes fail. CLAUDE.md is the source of truth.**
+
+**The meta-meta-lesson (from user follow-up question):**
+User asked: "What ensures we always evaluate if a lesson needs to be recorded?"
+Answer: Nothing, until we made it a mandatory checklist item (section 5).
+
+**Process enforcement pattern identified:**
+- ❌ "Consider X" → skippable
+- ❌ "X is important" → stated but not enforced  
+- ✅ **"Evaluate X: [Yes/No + reason]"** → forces evaluation
+
+This same pattern now applies to:
+- CodeRabbit thread resolution (section 6) - mandatory checklist item
+- Lessons-learned evaluation (section 5) - mandatory evaluation, recording only if yes
+- API spec verification (already mandatory) - documented in module authoring rules
 
 ---
 
