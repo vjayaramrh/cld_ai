@@ -273,6 +273,53 @@ verifies **correctness against the API contract and idempotency model**.
 endpoint parameters without checking the spec, discovered the gap, and implemented
 a verification workflow. Future contributors benefit from knowing this happened.
 
+### 6. PR hygiene and review workflow
+
+**After opening the PR:**
+
+- [ ] **Wait for CI checks** — All must pass before merge
+- [ ] **Address CodeRabbit findings:**
+  - Read all review comments
+  - Apply fixes for valid findings
+  - Commit and push fixes
+  - **Mark each review thread as resolved** (never leave threads unresolved)
+- [ ] **Post cost breakdown** (if tracking costs for the module)
+
+**Resolving CodeRabbit review threads:**
+
+```bash
+# Get thread IDs from the PR
+gh api graphql -f query='
+query {
+  repository(owner: "vjayaramrh", name: "cld_ai") {
+    pullRequest(number: PR_NUMBER) {
+      reviewThreads(first: 10) {
+        nodes {
+          id
+          isResolved
+          comments(first: 1) {
+            nodes { body }
+          }
+        }
+      }
+    }
+  }
+}' --jq '.data.repository.pullRequest.reviewThreads.nodes[] | {id: .id, isResolved: .isResolved}'
+
+# Resolve each thread after fixing (replace THREAD_ID)
+gh api graphql -f query='
+mutation {
+  resolveReviewThread(input: {threadId: "THREAD_ID"}) {
+    thread { id isResolved }
+  }
+}'
+```
+
+**Why this matters:** Unresolved threads on a merged PR suggest fixes weren't applied
+or weren't verified. Always close the loop with reviewers by marking threads resolved.
+This is a documented workflow step, not optional — see lessons-learned.md entry
+"Process Documentation Gap - CodeRabbit Comment Resolution" (2026-09-15).
+
 ## Container workflow
 
 Everything runs in a container (Docker or Podman) — no host deps. Verify with:

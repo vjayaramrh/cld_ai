@@ -6,6 +6,77 @@ A chronological journal of issues discovered, resolutions implemented, and lesso
 
 ---
 
+## 2026-09-15: Process Documentation Gap - CodeRabbit Comment Resolution
+
+**Issue:** Inconsistent handling of CodeRabbit review thread resolution after addressing findings.
+
+**What happened:**
+- PR #33 (TDD documentation): User explicitly asked to resolve CodeRabbit comments → resolved all 3 threads via GraphQL API ✅
+- PR #34 (module-workflow-guide): User didn't explicitly ask → forgot to resolve 2 threads after applying fixes ❌
+- PR merged with unresolved threads (addressed retroactively when user noticed)
+- User asked: "do you resolve the code review comments always?"
+- I admitted: "No, I didn't resolve them for PR #34 - I forgot that step"
+- User pushed deeper: "what ensures that this step will always be followed?"
+- Answer: **Nothing** - no documented process, only ad-hoc memory when explicitly reminded
+
+**Impact:**
+- Unresolved threads on merged PRs look incomplete (even when fixes were applied)
+- Inconsistent workflow quality across PRs
+- No feedback loop to reviewers that findings were addressed
+- Relies on user asking each time, not systematic process
+- Professional appearance suffers (looks like we didn't finish the review)
+
+**How we discovered it:**
+- User noticed threads weren't marked as resolved on PR #34
+- Asked if this is always done
+- I revealed it was inconsistent (only when explicitly asked)
+- User identified the gap: no enforcement mechanism
+
+**Resolution implemented:**
+
+1. **Updated CLAUDE.md verification checklist** (PR #35):
+   - Added section 6: "PR hygiene and review workflow"
+   - Checklist item: "Mark each review thread as resolved after fixing"
+   - Included GraphQL commands for resolution
+   - Linked to this lesson-learned entry
+
+2. **Saved as feedback memory:**
+   - When CodeRabbit reviews, always resolve threads after applying fixes
+   - Never leave threads unresolved on merge
+   - Part of standard PR workflow, not optional
+
+3. **Documented pattern:**
+   - Apply fix → commit → push → **resolve thread** → merge
+   - Thread resolution is part of "address the finding", not separate
+
+**Lesson learned:**
+
+> **Critical workflow steps must be documented in CLAUDE.md, not assumed.**  
+> "I'll remember" is hope, not process. Memory degrades across sessions.  
+> If a step matters for quality, it belongs in the verification checklist.
+
+**What to do differently:**
+- When establishing new workflow patterns, document them immediately in CLAUDE.md
+- Verification checklist is the enforcement mechanism (auto-loaded every session)
+- Don't rely on "I learned this" - codify it in documented process
+- Test: If the step could be forgotten when user doesn't explicitly ask, it needs documentation
+- Quality steps that depend on human memory will fail eventually
+
+**Artifacts:**
+- PR #35: Add CodeRabbit resolution step to CLAUDE.md verification checklist
+- Feedback memory: coderabbit-resolution-required.md
+- This lessons-learned entry
+
+**Why this pattern matters:**
+This is the third lessons-learned entry about **process gaps**:
+1. API Spec Verification Gap (2026-09-08) - assumed params without checking
+2. Terminology Precision (2026-09-09/10) - used terms without verifying industry definition
+3. **Process Documentation Gap (2026-09-15) - relied on memory instead of documented steps**
+
+The meta-lesson: **Undocumented processes fail. CLAUDE.md is the source of truth.**
+
+---
+
 ## 2026-09-09/10: Terminology Precision - "Agentic SDLC" vs AI-Assisted Development
 
 **Issue:** Using industry terminology imprecisely can mislead contributors about capabilities and autonomy levels.
