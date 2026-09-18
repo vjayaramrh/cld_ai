@@ -384,6 +384,32 @@ comment (step 4) and merge (step 5) happen atomically without a second approval.
 Never post the comment and then ask "should I merge now?" — the approval already
 covers both actions.
 
+### 7. README.md maintenance (conditional - only when triggered)
+
+**Not every PR updates README.md** - only when specific triggers occur.
+
+**Update README.md when:**
+- **Module milestones:**
+  - First module of a phase completes (update status: "scaffold" → "active")
+  - Module count changes (update "X of Y modules complete")
+  - Phase milestone reached (e.g., "Phase 1 complete")
+- **Documentation additions:**
+  - New contributor resource added (update Contributing section links)
+  - New workflow adopted (e.g., TDD - update Developing section)
+- **Status changes:**
+  - Project state changes (scaffold → active → stable → maintained)
+  - Scope changes (new phases added to roadmap)
+
+**How to check if update needed:**
+1. Read current README.md status line and module count
+2. Does this PR trigger any of the above? (module completion, doc addition, status change)
+3. If yes: update README.md in the same PR (1-2 line change usually)
+4. If no: skip (most PRs don't touch README)
+
+**Why this matters:** README.md is the first impression on GitHub. An outdated status
+("no modules yet" when 4 exist) makes the project look abandoned. But updating on
+EVERY PR creates noise. Trigger-based updates keep it current without overhead.
+
 ## Container workflow
 
 Everything runs in a container (Docker or Podman) — no host deps. Verify with:

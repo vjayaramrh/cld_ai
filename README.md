@@ -3,8 +3,21 @@
 Ansible modules for the OpenShift **Assisted Installer** API
 (`https://api.openshift.com/api/assisted-install/v2`).
 
-> **Status:** scaffold. No modules implemented yet — see [DESIGN.md](DESIGN.md)
-> for scope and phasing.
+> **Status:** Active development. **4 of 7 Phase 1 modules complete.**  
+> See [project board](https://github.com/users/vjayaramrh/projects/2) for progress and [DESIGN.md](DESIGN.md) for scope.
+
+## Modules Implemented
+
+**Phase 1 (in progress):**
+- ✅ `openshift_version_info` - Query available OpenShift versions
+- ✅ `supported_operator_info` - List supported operators  
+- ✅ `infra_env` - Manage infrastructure environments (state-based, reference implementation)
+- ✅ `host_action` - Host lifecycle actions (bind, unbind, install, reset)
+- 🏗️ `cluster_info` - Query cluster information (next)
+- ⏳ `support_level_info` - Architecture and feature support levels
+- ⏳ `cluster` - Manage clusters (state-based)
+
+See [docs/api-endpoint-map.md](docs/api-endpoint-map.md) for complete Phase 1 & 2 scope (81 API operations mapped).
 
 ## Quick start
 
@@ -56,21 +69,36 @@ cld_ai/
 └── .github/workflows/ci.yml   # sanity + units matrix
 ```
 
+## Contributing
+
+**New contributors:** Start with [docs/contributor-quick-start.md](docs/contributor-quick-start.md) - step-by-step tutorial from zero to first PR.
+
+**Project board:** https://github.com/users/vjayaramrh/projects/2 - claim an issue before starting.
+
+**Workflow:**
+- Test-Driven Development (TDD) recommended: tests first, then module
+- See [CONTRIBUTING.md](CONTRIBUTING.md) for complete process
+
 ## Developing
 
-Conventions are in [CLAUDE.md](CLAUDE.md); scope/idempotency in [DESIGN.md](DESIGN.md).
-Fastest way to add a module (with Claude Code):
+**Conventions:** [CLAUDE.md](CLAUDE.md) (workflow, verification checklist)  
+**Architecture:** [DESIGN.md](DESIGN.md) (idempotency patterns, scope, phasing)
 
+**Recommended workflow (Test-Driven Development):**
+1. Document assumptions in issue (get user confirmation)
+2. Generate tests first (based on OpenAPI spec verification)
+3. Get tests approved
+4. Generate module to satisfy approved tests
+
+**Scaffold modules (with Claude Code):**
 ```
-/new-ai-endpoint-module      # this API's base URL, auth, GET→PATCH idempotency
+/new-ai-endpoint-module      # this API's base URL, auth, idempotency patterns
 /new-ansible-module          # generic scaffold
 ```
 
-Keep `main` green:
-
+**Keep `main` green:**
 ```bash
-ansible-test sanity
-ansible-test units
+./run.sh --check    # build + sanity + units + coverage (≥90%)
 ```
 
 ## License
