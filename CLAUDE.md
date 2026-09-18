@@ -157,13 +157,55 @@ This applies to:
 
 ## Module authoring workflow
 
-**Recommended: Test-Driven Development (TDD)**
+**Step 1: Document assumptions before starting**
+
+Before writing any code, post your assumptions to the module's issue for user confirmation.
+This prevents wasted work if assumptions are incorrect.
+
+**Post to the issue as a comment:**
+
+```markdown
+## Assumptions Before Starting
+
+### Workflow Assumptions
+- [ ] Using TDD workflow (spec → tests → module)
+- [ ] Model: [Sonnet 4.5 / Haiku / Hybrid]
+- [ ] Cost tracking: [Yes - will post breakdown / No]
+- [ ] Following CLAUDE.md verification checklist (all 6 sections)
+
+### Module-Specific Assumptions
+- **Classification:** [info / state / action]
+- **Endpoints:** [list the API paths]
+- **Query parameters:** [list expected params - MUST VERIFY FROM SPEC]
+- **Response shapes:** [array / object / other - MUST VERIFY FROM SPEC]
+- **Edge cases:** [e.g., 404 handling, path vs query routing]
+
+### Critical Items to Verify First
+- [ ] Issue still open and unclaimed
+- [ ] OpenAPI spec queried for exact parameters
+- [ ] Response shapes confirmed from spec
+- [ ] [Any module-specific verification items]
+
+**Please confirm or correct assumptions before I proceed.**
+```
+
+**Why this matters:**
+- Catches misunderstandings BEFORE coding (not after)
+- User can correct approach early (prevents rework)
+- Creates discussion thread for questions
+- Documents decision points (useful for review)
+
+**In the PR:** Reference the issue comment: "See assumptions documented in issue #N"
+
+---
+
+**Step 2: Test-Driven Development (TDD)** [Recommended]
 
 For quality-critical modules, generate and approve tests FIRST, then write the module
 to satisfy the approved tests. This prevents "silent gray errors" where generated
 code passes tests but implements the wrong behavior.
 
-**TDD workflow:**
+**TDD workflow** (after Step 1 assumptions confirmed):
 1. Verify API spec (query OpenAPI, document findings)
 2. **Generate tests ONLY** (all applicable categories for module type, based on spec)
 3. **Human approves tests** (verify tests match spec, not agent's interpretation)
