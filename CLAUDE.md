@@ -334,7 +334,8 @@ recording a lesson is only required when the evaluation says "yes."
   - Apply fixes for valid findings
   - Commit and push fixes
   - **Mark each review thread as resolved** (never leave threads unresolved)
-- [ ] **Post cost breakdown** (if tracking costs for the module)
+- [ ] **Post cost breakdown** (if tracking costs) — BEFORE merge, not after
+- [ ] **Merge** — Only after all above items complete
 
 **Resolving CodeRabbit review threads:**
 
@@ -370,6 +371,13 @@ mutation {
 or weren't verified. Always close the loop with reviewers by marking threads resolved.
 This is a documented workflow step, not optional — see lessons-learned.md entry
 "Process Documentation Gap - CodeRabbit Comment Resolution" (2026-09-15).
+
+**Complete workflow order:**
+1. CI checks pass → 2. CodeRabbit findings addressed → 3. Threads resolved →
+4. **Cost breakdown posted** → 5. **Merge**
+
+Never merge before posting cost breakdown (if tracking costs). The comment must be
+visible in the PR discussion before the PR closes.
 
 ## Container workflow
 
