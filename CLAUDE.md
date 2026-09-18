@@ -379,6 +379,11 @@ This is a documented workflow step, not optional — see lessons-learned.md entr
 Never merge before posting cost breakdown (if tracking costs). The comment must be
 visible in the PR discussion before the PR closes.
 
+**IMPORTANT: One approval for both actions.** When user approves merge, BOTH post
+comment (step 4) and merge (step 5) happen atomically without a second approval.
+Never post the comment and then ask "should I merge now?" — the approval already
+covers both actions.
+
 ## Container workflow
 
 Everything runs in a container (Docker or Podman) — no host deps. Verify with:
