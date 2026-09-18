@@ -39,7 +39,7 @@ Read CLAUDE.md (conventions) and DESIGN.md (scope, phasing, idempotency) first.
 - [ ] **Lessons-learned evaluated:** [ ] Yes - entry added to docs/lessons-learned.md | [ ] No - not applicable because: _______
 
 **Module PRs only:**
-- [ ] Assumptions documented in issue before starting (link: issue #___)
+- [ ] Assumptions documented and confirmed in issue (link to user confirmation: issue #___ (comment))
 - [ ] API contract verified against OpenAPI spec (documented findings)
 - [ ] All applicable test categories covered (see DESIGN.md §7)
 - [ ] Coverage ≥90% (shown in `./run.sh --check` output)

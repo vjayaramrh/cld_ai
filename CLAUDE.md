@@ -205,7 +205,7 @@ For quality-critical modules, generate and approve tests FIRST, then write the m
 to satisfy the approved tests. This prevents "silent gray errors" where generated
 code passes tests but implements the wrong behavior.
 
-**TDD workflow:**
+**TDD workflow** (after Step 1 assumptions confirmed):
 1. Verify API spec (query OpenAPI, document findings)
 2. **Generate tests ONLY** (all applicable categories for module type, based on spec)
 3. **Human approves tests** (verify tests match spec, not agent's interpretation)
