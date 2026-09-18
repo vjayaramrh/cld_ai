@@ -45,4 +45,8 @@ Read CLAUDE.md (conventions) and DESIGN.md (scope, phasing, idempotency) first.
 - [ ] Coverage ≥90% (shown in `./run.sh --check` output)
 - [ ] Cost breakdown posted (if tracking costs for this module)
 
+**README.md maintenance (conditional):**
+- [ ] README.md updated (if this PR triggers: module milestone, doc addition, or status change)
+- [ ] Not applicable (no README triggers - most PRs check this)
+
 **Reference:** See [CLAUDE.md verification checklist](../CLAUDE.md#before-you-commit-verification-checklist) for detailed guidance.
