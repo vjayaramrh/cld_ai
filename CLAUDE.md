@@ -189,13 +189,31 @@ This prevents wasted work if assumptions are incorrect.
 **Please confirm or correct assumptions before I proceed.**
 ```
 
+**Response workflow (echo-back validation):**
+
+1. User posts response in the issue (freeform - no template required)
+2. User notifies in conversation: "check issue #N" 
+3. Claude fetches issue comments and reads response
+4. **Claude echoes understanding back to the issue:** "Understood: [summary]. Proceeding with [next step]."
+5. User confirms echo is correct in conversation (or corrects if misunderstood)
+6. Only then proceed with implementation
+
+**Why echo-back:**
+- ✅ Validates understanding before starting (catches misinterpretation early)
+- ✅ Fast correction loop (user can fix before work begins)
+- ✅ Complete audit trail in issue (assumptions → response → understanding → work)
+- ✅ No template overhead (natural language responses)
+- ✅ Gibberish detection ("blah" → "I don't understand - please clarify")
+
+**Note:** This workflow is being validated with initial modules. May adapt when other contributors join.
+
 **Why this matters:**
 - Catches misunderstandings BEFORE coding (not after)
 - User can correct approach early (prevents rework)
 - Creates discussion thread for questions
 - Documents decision points (useful for review)
 
-**In the PR:** Reference the issue comment: "See assumptions documented in issue #N"
+**In the PR:** Reference the issue comment: "See assumptions documented and confirmed in issue #N"
 
 ---
 
