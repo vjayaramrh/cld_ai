@@ -75,18 +75,18 @@ Why does our map choose multiple specialized modules (Option B) when major colle
 - Pattern: Research → Document principle → Apply consistently
 - Add to DESIGN.md: "When to split info modules" section with examples
 
-**Next steps (before implementing cluster_info):**
+**Resolution steps:**
 1. ✅ Document this gap (this entry)
-2. ⏳ Present granularity options with precedent analysis
-3. ⏳ User decides design principle
-4. ⏳ Update DESIGN.md with principle + rationale
-5. ⏳ Revise api-endpoint-map.md to match principle
-6. ⏳ Then implement cluster_info following validated pattern
+2. ✅ Present granularity options with precedent analysis
+3. ✅ User decides design principle
+4. ✅ Update DESIGN.md with principle + rationale
+5. ✅ Revise api-endpoint-map.md to match principle
+6. ⏳ Then implement cluster_info following validated pattern (next)
 
 **Artifacts:**
 - This lessons-learned entry
-- Pending: DESIGN.md update with granularity principle
-- Pending: api-endpoint-map.md revision
+- DESIGN.md §6 "Module granularity principle" (PR #41)
+- api-endpoint-map.md revision (PR #41)
 
 **Why this matters:**
 This is the 4th lessons-learned entry about **undocumented decisions**:

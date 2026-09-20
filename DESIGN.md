@@ -229,7 +229,7 @@ the module. Tests become the executable specification rather than post-hoc valid
 
 **Note:** All module types use the same 5 categories (lifecycle, idempotency, check-mode,
 safety guards, API contract); what varies is the specific tests within each category.
-See §7 "Units — every module, always" for the required cases per module type.
+See §8 "Units — every module, always" for the required cases per module type.
 
 **Quality improvement:**
 - Builder-validator chains show +15.6% improvement in research
