@@ -352,9 +352,6 @@ recording a lesson is only required when the evaluation says "yes."
   - Apply fixes for valid findings
   - Commit and push fixes
   - **Mark each review thread as resolved** (never leave threads unresolved)
-- [ ] **Post cost breakdown** (if tracking costs) — BEFORE merge, not after
-- [ ] **Merge** — Only after all above items complete
-
 **Resolving CodeRabbit review threads:**
 
 ```bash
@@ -391,11 +388,14 @@ This is a documented workflow step, not optional — see lessons-learned.md entr
 "Process Documentation Gap - CodeRabbit Comment Resolution" (2026-09-15).
 
 **Complete workflow order:**
-1. CI checks pass → 2. CodeRabbit findings addressed → 3. Threads resolved →
-4. **Cost breakdown posted** → 5. **Merge**
+1. CI checks pass
+2. CodeRabbit findings addressed
+3. Threads resolved
+4. **User approves merge**
+5. **Atomically (both in same response):** Post cost breakdown (if tracking) + merge
 
-Never merge before posting cost breakdown (if tracking costs). The comment must be
-visible in the PR discussion before the PR closes.
+The atomic execution (step 5) ensures cost breakdown is visible in PR discussion before
+PR closes, with no intermediate state where one happens without the other.
 
 **IMPORTANT: One approval for both actions.** When user approves merge, BOTH post
 comment (step 4) and merge (step 5) happen atomically without a second approval.
