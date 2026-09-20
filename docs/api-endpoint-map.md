@@ -51,14 +51,14 @@ Everything not `agent-internal` is a candidate module. Phase per DESIGN.md §3;
 |--------|------|-------------|---------|--------|-------|
 | GET | /v2/clusters | v2ListClusters | info | `cluster_info` | 1 |
 | GET | /v2/clusters/{cluster_id} | v2GetCluster | info | `cluster_info` | 1 |
+| GET | /v2/clusters/default-config | V2GetClusterDefaultConfig | info | `cluster_info` (`get_default_config`) | 1 |
+| GET | /v2/clusters/{cluster_id}/supported-platforms | GetClusterSupportedPlatforms | info | `cluster_info` (`include_platforms`) | backlog |
+| GET | /v2/clusters/{cluster_id}/preflight-requirements | v2GetPreflightRequirements | info | `cluster_info` (`include_preflight`) | backlog |
 | POST | /v2/clusters | v2RegisterCluster | state | `cluster` (`state: present`) | 1 |
 | PATCH | /v2/clusters/{cluster_id} | V2UpdateCluster | state | `cluster` (drift → PATCH) | 1 |
 | DELETE | /v2/clusters/{cluster_id} | v2DeregisterCluster | state | `cluster` (`state: absent`) | 1 |
 | POST | /v2/clusters/import | v2ImportCluster | state | `cluster` (import variant — open Q) | backlog |
 | POST | /v2/clusters/disconnected | v2RegisterDisconnectedCluster | state | `cluster` (disconnected variant — open Q) | backlog |
-| GET | /v2/clusters/default-config | V2GetClusterDefaultConfig | info | `cluster_info` / `cluster_default_config_info` | backlog |
-| GET | /v2/clusters/{cluster_id}/supported-platforms | GetClusterSupportedPlatforms | info | `cluster_info` sub-read | backlog |
-| GET | /v2/clusters/{cluster_id}/preflight-requirements | v2GetPreflightRequirements | info | `cluster_info` sub-read | backlog |
 
 ## Cluster — RPC actions
 
@@ -75,10 +75,10 @@ Everything not `agent-internal` is a candidate module. Phase per DESIGN.md §3;
 
 | Method | Path | operationId | Pattern | Module | Phase |
 |--------|------|-------------|---------|--------|-------|
-| GET | /v2/clusters/{cluster_id}/install-config | v2GetClusterInstallConfig | info | `cluster_install_config_info` (or fold into `cluster_info`) | backlog |
-| PATCH | /v2/clusters/{cluster_id}/install-config | v2UpdateClusterInstallConfig | state | fold into `cluster`, or `cluster_install_config` (open Q) | backlog |
-| GET | /v2/clusters/{cluster_id}/ignored-validations | v2GetIgnoredValidations | info | `cluster_info` sub-read | backlog |
-| PUT | /v2/clusters/{cluster_id}/ignored-validations | v2SetIgnoredValidations | state | fold into `cluster` (open Q) | backlog |
+| GET | /v2/clusters/{cluster_id}/install-config | v2GetClusterInstallConfig | info | `cluster_info` (`include_install_config`) | backlog |
+| PATCH | /v2/clusters/{cluster_id}/install-config | v2UpdateClusterInstallConfig | state | `cluster` (install_config param) | backlog |
+| GET | /v2/clusters/{cluster_id}/ignored-validations | v2GetIgnoredValidations | info | `cluster_info` (`include_ignored_validations`) | backlog |
+| PUT | /v2/clusters/{cluster_id}/ignored-validations | v2SetIgnoredValidations | state | `cluster` (ignored_validations param) | backlog |
 | GET | /v2/clusters/{cluster_id}/ui-settings | V2GetClusterUISettings | info | UI concern — likely out of scope | — |
 | PUT | /v2/clusters/{cluster_id}/ui-settings | V2UpdateClusterUISettings | state | UI concern — likely out of scope | — |
 
@@ -96,14 +96,14 @@ Everything not `agent-internal` is a candidate module. Phase per DESIGN.md §3;
 
 | Method | Path | operationId | Pattern | Module | Phase |
 |--------|------|-------------|---------|--------|-------|
-| GET | /v2/clusters/{cluster_id}/credentials | V2GetCredentials | info | `cluster_credentials_info` | 2 |
-| GET | /v2/clusters/{cluster_id}/downloads/credentials | V2DownloadClusterCredentials | download | `cluster_credentials_info` (kubeconfig etc.) | 2 |
-| GET | /v2/clusters/{cluster_id}/downloads/credentials-presigned | V2GetPresignedForClusterCredentials | download | `cluster_credentials_info` (presigned) | 2 |
-| GET | /v2/clusters/{cluster_id}/downloads/files | V2DownloadClusterFiles | download | `cluster_file_info` | backlog |
-| GET | /v2/clusters/{cluster_id}/downloads/files-presigned | V2GetPresignedForClusterFiles | download | `cluster_file_info` (presigned) | backlog |
-| GET | /v2/clusters/{cluster_id}/logs | V2DownloadClusterLogs | download | `cluster_logs_info` | backlog |
-| GET | /v2/clusters/{cluster_id}/hosts | ListClusterHosts | info | `host_info` (by cluster) | 2 |
-| GET | /v2/clusters/{cluster_id}/monitored-operators | V2ListOfClusterOperators | info | `cluster_operator_info` (or `cluster_info` sub) | backlog |
+| GET | /v2/clusters/{cluster_id}/credentials | V2GetCredentials | info | `cluster_info` (`include_credentials`) | 2 |
+| GET | /v2/clusters/{cluster_id}/downloads/credentials | V2DownloadClusterCredentials | download | `cluster_info` (`download_credentials`) | 2 |
+| GET | /v2/clusters/{cluster_id}/downloads/credentials-presigned | V2GetPresignedForClusterCredentials | download | `cluster_info` (`presigned_credentials`) | 2 |
+| GET | /v2/clusters/{cluster_id}/downloads/files | V2DownloadClusterFiles | download | `cluster_info` (`download_files`) | backlog |
+| GET | /v2/clusters/{cluster_id}/downloads/files-presigned | V2GetPresignedForClusterFiles | download | `cluster_info` (`presigned_files`) | backlog |
+| GET | /v2/clusters/{cluster_id}/logs | V2DownloadClusterLogs | download | `cluster_info` (`include_logs`) | backlog |
+| GET | /v2/clusters/{cluster_id}/hosts | ListClusterHosts | info | `host_info` (by cluster_id param) | 2 |
+| GET | /v2/clusters/{cluster_id}/monitored-operators | V2ListOfClusterOperators | info | `cluster_info` (`include_monitored_operators`) | backlog |
 
 ## Infra-env — state-based CRUD + reads/actions
 
@@ -179,25 +179,26 @@ deliberately excluded from the collection.
 ### Phase rollup (modules to author)
 
 - **Phase 1:** `openshift_version_info` ✅, `support_level_info`,
-  `supported_operator_info`, `cluster` + `cluster_info`, `infra_env` + `infra_env_info`.
-- **Phase 2:** `cluster_action`, `host` + `host_info` + `host_action`,
-  `cluster_credentials_info`, `infra_env` ISO-URL download helper.
-- **Backlog:** manifests, install-config/ignored-validations sub-resources,
-  events/domains/bundles/component-versions/release-sources info modules,
-  import/disconnected cluster variants, `infra_env_action`, host ignition/installer-args.
+  `supported_operator_info` ✅, `cluster` + `cluster_info`, `infra_env` ✅ + `infra_env_info`.
+- **Phase 2:** `cluster_action`, `host` + `host_info` + `host_action` ✅,
+  `cluster_info` credentials/downloads (parameters), `infra_env_info` ISO-URL download.
+- **Backlog:** `cluster_manifest` + `cluster_manifest_info`, install-config/ignored-validations
+  (fold into `cluster`/`cluster_info` params), events/domains/bundles/component-versions/
+  release-sources info modules, import/disconnected cluster variants, `infra_env_action`,
+  host ignition/installer-args.
 
-## Open questions (feed [[module-naming-decisions]])
+## Open questions
 
 1. **`support_level_info` shape** — one module with a `kind:` param
    (`architectures` / `features` / `features_detailed`) vs. three modules?
-2. **Config sub-resources** — fold `install-config`, `ignored-validations`,
-   `installer-args`, `ignition` into the parent `cluster`/`host` module as options,
-   or ship dedicated modules? (Affects how many Phase-backlog modules exist.)
-3. **Cluster register variants** — are `import` and `disconnected` a mode of
+2. **Cluster register variants** — are `import` and `disconnected` a mode of
    `cluster`, or separate modules?
-4. **`reset-validation`** — action verb (`host_action`) or state-based sub-resource?
+3. **`reset-validation`** — action verb (`host_action`) or state-based sub-resource?
    It is a PATCH, unlike the other POST `/actions/*`.
-5. **UI settings** — confirm out of scope (no operator use case).
+4. **UI settings** — confirm out of scope (no operator use case).
+
+**Resolved:**
+- ~~Config sub-resources~~ → Resolved per DESIGN.md §6 (granularity principle): fold into parent modules as parameters
 
 ## How this was generated
 

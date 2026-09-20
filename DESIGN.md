@@ -108,7 +108,59 @@ References: Ansible module dev guide (`developing_modules_general`,
 amazon.aws (`ec2_instance` + `ec2_instance_info`), kubernetes.core (`k8s` +
 `k8s_info`), redhat.openshift / community.okd (all singular).
 
-## 6. Key decisions locked in
+## 6. Module granularity principle
+
+How to decide when to split functionality into multiple modules vs. consolidating
+into one flexible module.
+
+**Industry precedent** (kubernetes.core, amazon.aws, azure.azcollection,
+community.docker): Collections consolidate related operations into fewer, more
+flexible modules rather than proliferating specialized modules.
+
+### Split criterion — Create separate modules when:
+
+1. ✅ **Resource has independent lifecycle** (can exist without parent)
+   - Example: `host_info` separate from `cluster_info` (hosts exist independently)
+   - Example: `cluster_manifest` + `cluster_manifest_info` separate (manifests have CRUD lifecycle)
+2. ✅ **Different authentication/permission scope**
+3. ✅ **Fundamentally different operation pattern** (e.g., download vs. query)
+
+### Consolidate criterion — Use ONE module with parameters when:
+
+1. ✅ **Sub-data is part of the resource** (no independent existence)
+   - Example: cluster credentials are derived from cluster state (no lifecycle)
+   - Example: cluster install-config is cluster metadata (no independent existence)
+2. ✅ **Same API client/authentication**
+3. ✅ **Just different fields/projections** of the same resource
+
+### Examples from this collection
+
+**Consolidation (follow these patterns):**
+- ✅ `supported_operator_info`: Consolidates list + get-by-name (2 endpoints, 1 module)
+- ✅ `host_action`: Consolidates bind/unbind/install/reset (4 endpoints, 1 module with `action` param)
+- ✅ `cluster_info`: Consolidates core metadata + credentials + config + default-config (10+ endpoints, 1 module with optional params)
+
+**Separation (independent lifecycles):**
+- ✅ `cluster_manifest_info` + `cluster_manifest`: Separate (manifests have independent CRUD lifecycle)
+- ✅ `host_info` + `host`: Separate (hosts exist independently of clusters)
+- ✅ `infra_env_info` + `infra_env`: Separate (infra-envs have independent lifecycle)
+
+### Anti-patterns to avoid
+
+- ❌ Splitting by endpoint URL structure alone
+- ❌ `cluster_info` + `cluster_credentials_info` + `cluster_config_info` + `cluster_logs_info` + ...
+  (no industry precedent; increases user/maintainer burden)
+- ❌ One module per HTTP verb (`cluster_create`, `cluster_update`, `cluster_delete` — use `state:` instead)
+
+**When uncertain:** Default to consolidation. Parameters are cheaper than modules.
+
+**Precedent citations:**
+- **kubernetes.core:** `k8s_info` queries ANY resource type via `kind` parameter (pods, services, deployments) — not separate `k8s_pod_info`, `k8s_service_info`
+- **amazon.aws:** `ec2_instance_info` returns all instance data; `aws_caller_info` returns identity + credentials — not split by sub-resource
+- **azure.azcollection:** `azure_rm_virtualmachine_info` returns all VM data — not split into network/storage/tags modules
+- **community.docker:** `docker_container_info` returns container data including network/volume mounts — those are part of container state, not separate modules
+
+## 7. Key decisions locked in
 
 - **HTTP client:** `fetch_url` (dependency-free, sanity-clean, EE-friendly).
 - **License:** GPL-3.0-or-later — GPLv3 headers on module files (the Ansible norm;
@@ -119,11 +171,11 @@ amazon.aws (`ec2_instance` + `ec2_instance_info`), kubernetes.core (`k8s` +
   stable-2.18, and stable-2.19; sanity ignore files exist per supported version
   and stay in sync.
 - **Testing:** units always (API mocked); integration selectively — the
-  unit/integration mix is defined in [§7](#7-testing-strategy--unit-vs-integration).
+  unit/integration mix is defined in [§8](#8-testing-strategy--unit-vs-integration).
   No live calls or credentials in CI, ever. Coverage ≥90% enforced (execution-based
   gate that complements pattern-based review).
 
-## 7. Testing strategy — unit vs. integration
+## 8. Testing strategy — unit vs. integration
 
 **Principle: units prove the *logic*; integration proves the *wiring and the
 multi-step lifecycle*.** Both mock the network — the API is never called for real.

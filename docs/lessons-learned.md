@@ -6,6 +6,99 @@ A chronological journal of issues discovered, resolutions implemented, and lesso
 
 ---
 
+## 2026-09-20: Architectural Decision Gap - Module Granularity Without Precedent
+
+**Issue:** The api-endpoint-map.md splits cluster-related info modules into multiple specialized modules (`cluster_info`, `cluster_manifest_info`, `cluster_credentials_info`, `cluster_file_info`, `cluster_logs_info`, `cluster_operator_info`) without documented rationale or industry precedent.
+
+**What happened:**
+- User asked (issue #10 comment): "Do you mind listing exhaustively all the GET APIs related to clusters and which would be implemented?"
+- I found 18 cluster-related GET endpoints in the OpenAPI spec
+- I referenced api-endpoint-map.md and saw it splits them across 6+ separate `*_info` modules
+- User asked deeper question: "Why do we need cluster_info, cluster_manifest_info, cluster_credentials_info, cluster_file_info and such? What is the reference and precedent for this?"
+- **I could not find any documented rationale or precedent research**
+- DESIGN.md §5 explains `_info` suffix convention but NOT when to split into multiple modules
+- Memory (module-naming-decisions.md) says "RESOLVED" but only covers naming, not granularity
+- The map shows line 106: `cluster_operator_info` **(or `cluster_info` sub)** - revealing uncertainty!
+
+**Impact of the gap:**
+- Architectural decisions made without documented reasoning
+- Cannot explain to contributors WHY this granularity was chosen
+- Risk of inconsistent patterns (some resources split, others consolidated)
+- May be over-engineering (6+ modules) when 1 flexible module could work
+- Starting implementation before resolving this would bake in an unvalidated pattern
+
+**Industry precedent research (what major collections ACTUALLY do):**
+
+1. **kubernetes.core:**
+   - `k8s_info` - ONE module gets ANY Kubernetes resource via parameters
+   - NOT separate `k8s_pod_info`, `k8s_service_info`, `k8s_deployment_info`
+   - Pattern: Flexible, parameter-driven
+
+2. **amazon.aws:**
+   - `ec2_instance_info` - ONE module for EC2 instances
+   - NOT separate `ec2_instance_network_info`, `ec2_instance_storage_info`
+   - Pattern: Consolidated per resource
+
+3. **Industry pattern:** Fewer, more flexible info modules with parameters to vary behavior
+
+**The unanswered question:**
+Why does our map choose multiple specialized modules (Option B) when major collections use consolidated flexible modules (Option A)?
+
+**How we discovered it:**
+- User's probing question about references consulted
+- Could not cite any precedent or documented decision rationale
+- Realized the api-endpoint-map.md granularity was assumed, not researched
+
+**Resolution implemented:**
+
+1. **Paused cluster_info implementation** - Don't bake in unvalidated pattern
+2. **Researched actual precedents** - kubernetes.core, amazon.aws use consolidated pattern
+3. **Documented the gap** - This lessons-learned entry
+4. **Established design principle decision process:**
+   - Present both options with precedent research
+   - User decides architectural principle
+   - Document rationale in DESIGN.md
+   - Update api-endpoint-map.md accordingly
+   - THEN implement cluster_info following validated principle
+
+**Lesson learned:**
+
+> **Architectural decisions affecting module granularity MUST cite precedent and document rationale.**  
+> Don't assume a structure because it "seems right" - research what major Ansible collections actually do.  
+> If diverging from industry patterns, document WHY and the tradeoffs explicitly.
+
+**What to do differently:**
+- Before creating api-endpoint-map.md, research precedents from 3+ major Ansible collections
+- Document design principle for module granularity in DESIGN.md (when to split, when to consolidate)
+- Cite specific examples from kubernetes.core, amazon.aws, azure.azcollection, etc.
+- Any architectural decision that affects multiple modules needs documented rationale
+- Pattern: Research → Document principle → Apply consistently
+- Add to DESIGN.md: "When to split info modules" section with examples
+
+**Next steps (before implementing cluster_info):**
+1. ✅ Document this gap (this entry)
+2. ⏳ Present granularity options with precedent analysis
+3. ⏳ User decides design principle
+4. ⏳ Update DESIGN.md with principle + rationale
+5. ⏳ Revise api-endpoint-map.md to match principle
+6. ⏳ Then implement cluster_info following validated pattern
+
+**Artifacts:**
+- This lessons-learned entry
+- Pending: DESIGN.md update with granularity principle
+- Pending: api-endpoint-map.md revision
+
+**Why this matters:**
+This is the 4th lessons-learned entry about **undocumented decisions**:
+1. API Spec Verification Gap (2026-09-08) - verify before assuming
+2. Terminology Precision (2026-09-09/10) - verify industry definitions
+3. Process Documentation Gap (2026-09-15) - document workflow steps
+4. **Architectural Decision Gap (2026-09-20) - research precedents, document rationale**
+
+The meta-lesson: **Assumptions fail. Research, document, cite sources.**
+
+---
+
 ## 2026-09-15: Process Documentation Gap - CodeRabbit Comment Resolution
 
 **Issue:** Inconsistent handling of CodeRabbit review thread resolution after addressing findings.
