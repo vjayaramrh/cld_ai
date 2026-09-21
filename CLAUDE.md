@@ -494,6 +494,64 @@ Before every commit:
 The hook blocks commits to `main` locally. Branch protection blocks pushes to `main`
 remotely. Together they enforce the PR-only workflow.
 
+## Documentation changes (conflict-check protocol)
+
+**For prescriptive documentation (docs that tell you HOW to do things):**
+
+Apply conflict-check when the doc prescribes:
+- **Workflows** (how to contribute, how to author modules)
+- **Architecture decisions** (module patterns, granularity principles)
+- **Process requirements** (verification steps, review protocols)
+
+**Current examples:**
+- DESIGN.md (architecture decisions)
+- CLAUDE.md (authoring workflows)
+- CONTRIBUTING.md (contributor processes)
+- docs/api-endpoint-map.md (module mapping decisions)
+- docs/lessons-learned.md (process improvements)
+
+**Skip for:**
+- Primers (educational, not prescriptive)
+- Templates (used as-is, not instructions)
+- Tracking docs (data only, no workflows)
+- Tutorials (usually additive)
+
+**When unsure:** If contradictions would confuse contributors about what to do, apply the check.
+
+**Why:** Incremental changes can contradict existing sections. Happened twice (2026-09-20):
+- Added §6 to DESIGN.md, forgot to update cross-reference to §7→§8
+- Added strict atomic-merge rule, didn't notice old workflow section conflicted
+
+**Conflict-check steps:**
+
+1. **Grep for key terms** you're changing:
+   ```bash
+   # Example: changing "cost breakdown" workflow
+   grep -n "cost\|breakdown\|merge" CLAUDE.md
+   
+   # Example: adding new section, check cross-references
+   grep -n "§7\|section 7" DESIGN.md
+   ```
+
+2. **Read all matches** - do any conflict with your change?
+   - Contradictory instructions?
+   - Outdated cross-references?
+   - Different terminology for same concept?
+
+3. **Update conflicting sections** in the same PR
+   - Don't leave contradictions for review to catch
+   - Fix cross-references when section numbers change
+
+4. **If unsure:** Search and verify - don't assume compatibility
+
+**Skip for:**
+- Typo fixes
+- Clarifications that don't change meaning
+- Adding new unrelated content
+
+**Rationale:** Humans think incrementally ("add this"), tools think comprehensively
+("does this conflict with anything?"). Grep before PR closes the gap.
+
 ## Golden rule
 
 Keep `main` green: `ansible-test sanity`, `ansible-test units`, and **coverage ≥90%**
