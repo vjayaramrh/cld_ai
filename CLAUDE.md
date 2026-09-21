@@ -352,9 +352,6 @@ recording a lesson is only required when the evaluation says "yes."
   - Apply fixes for valid findings
   - Commit and push fixes
   - **Mark each review thread as resolved** (never leave threads unresolved)
-- [ ] **Post cost breakdown** (if tracking costs) — BEFORE merge, not after
-- [ ] **Merge** — Only after all above items complete
-
 **Resolving CodeRabbit review threads:**
 
 ```bash
@@ -391,16 +388,49 @@ This is a documented workflow step, not optional — see lessons-learned.md entr
 "Process Documentation Gap - CodeRabbit Comment Resolution" (2026-09-15).
 
 **Complete workflow order:**
-1. CI checks pass → 2. CodeRabbit findings addressed → 3. Threads resolved →
-4. **Cost breakdown posted** → 5. **Merge**
+1. CI checks pass
+2. CodeRabbit findings addressed
+3. Threads resolved
+4. **User approves merge**
+5. **Atomically (both in same response):** Post cost breakdown (if tracking) + merge
 
-Never merge before posting cost breakdown (if tracking costs). The comment must be
-visible in the PR discussion before the PR closes.
+The atomic execution (step 5) ensures cost breakdown is visible in PR discussion before
+PR closes, with no intermediate state where one happens without the other.
 
 **IMPORTANT: One approval for both actions.** When user approves merge, BOTH post
 comment (step 4) and merge (step 5) happen atomically without a second approval.
 Never post the comment and then ask "should I merge now?" — the approval already
 covers both actions.
+
+**Cost breakdown timing (strict rule):**
+
+**NEVER post cost breakdown separately from merge.** The atomic behavior exists to prevent
+a state where cost is posted but PR isn't merged, or to avoid asking for a second approval.
+
+**❌ Prohibited patterns:**
+- Posting cost while CI runs (before merge approval)
+- Posting cost after addressing CodeRabbit findings (before merge approval)
+- Posting cost "to be helpful" in anticipation of merge
+- Any cost comment not in the same response as merge execution
+
+**✅ Required pattern:**
+- **ONLY** post cost breakdown in the SAME response that executes merge
+- **Trigger:** User approval to merge ("merge", "go ahead and merge", "please merge")
+- **Action:** Post cost comment + merge command (both tool calls, one response)
+
+**Pre-merge checklist (before executing merge command):**
+```markdown
+- [ ] User approved merge? (if NO: STOP - don't post cost or merge)
+- [ ] Cost breakdown needed? (if YES: post NOW in THIS response)
+- [ ] Merge command ready? (execute NOW in THIS response)
+```
+
+**If cost was already posted separately:** That's a workflow violation. Note it as a lesson
+learned, fix the process, don't repeat the pattern.
+
+**Why this strict rule:** Removes discretion. Posting early breaks atomic behavior even if
+the end result (cost before merge) is technically correct. The trigger is user approval,
+not CI completion or CodeRabbit review.
 
 ### 7. README.md maintenance (conditional - only when triggered)
 
