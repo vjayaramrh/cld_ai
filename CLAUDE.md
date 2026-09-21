@@ -507,8 +507,8 @@ Apply conflict-check when the doc prescribes:
 - DESIGN.md (architecture decisions)
 - CLAUDE.md (authoring workflows)
 - CONTRIBUTING.md (contributor processes)
-- api-endpoint-map.md (module mapping decisions)
-- lessons-learned.md (process improvements)
+- docs/api-endpoint-map.md (module mapping decisions)
+- docs/lessons-learned.md (process improvements)
 
 **Skip for:**
 - Primers (educational, not prescriptive)
