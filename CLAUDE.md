@@ -396,7 +396,7 @@ This is a documented workflow step, not optional — see lessons-learned.md entr
 2. CodeRabbit findings addressed
 3. Threads resolved
 4. **User approves merge**
-5. **Atomically (both in same response):** Post cost breakdown (if tracking) + merge
+5. **Atomically (both in same response):** Post cost breakdown + merge
 
 The atomic execution (step 5) ensures cost breakdown is visible in PR discussion before
 PR closes, with no intermediate state where one happens without the other.
@@ -405,6 +405,26 @@ PR closes, with no intermediate state where one happens without the other.
 comment (step 4) and merge (step 5) happen atomically without a second approval.
 Never post the comment and then ask "should I merge now?" — the approval already
 covers both actions.
+
+**Cost breakdown scope:**
+
+**ALL PRs using Claude Code or Claude API require cost breakdown** (module implementations,
+documentation, fixes, refactors — all types). This provides complete visibility into
+Claude usage across the project.
+
+**Exception:** PRs authored manually or using other AI tools (GPT, Gemini, etc.):
+- Note authoring method in PR description ("manual authoring", "ChatGPT-assisted", etc.)
+- Cost breakdown not required (no Claude usage to track)
+- If mixed authoring (Claude + other): estimate Claude's portion in breakdown
+
+**Scope decision matrix:**
+
+| PR Type | Authored With | Cost Breakdown Required? |
+|---------|--------------|--------------------------|
+| Any type | Claude Code/API | ✅ Required (atomic with merge) |
+| Any type | Manual (human only) | ❌ Note "manual" in PR description |
+| Any type | Other AI (GPT, etc.) | ❌ Note tool used in PR description |
+| Any type | Mixed (Claude + other) | ✅ Estimate Claude portion only |
 
 **Cost breakdown timing (strict rule):**
 
@@ -425,9 +445,13 @@ a state where cost is posted but PR isn't merged, or to avoid asking for a secon
 **Pre-merge checklist (before executing merge command):**
 ```markdown
 - [ ] User approved merge? (if NO: STOP - don't post cost or merge)
-- [ ] Cost breakdown needed? (if YES: post NOW in THIS response)
+- [ ] Claude used for this PR? (if YES: cost breakdown required - post NOW)
 - [ ] Merge command ready? (execute NOW in THIS response)
 ```
+
+**Note:** If this PR was authored manually or with other AI tools, note that in the PR
+description and skip cost breakdown. For Claude-assisted PRs, cost breakdown is always
+required and must be posted atomically with merge.
 
 **If cost was already posted separately:** That's a workflow violation. Note it as a lesson
 learned, fix the process, don't repeat the pattern.
