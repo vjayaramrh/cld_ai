@@ -6,6 +6,91 @@ A chronological journal of issues discovered, resolutions implemented, and lesso
 
 ---
 
+## 2026-09-22: Cost Tracking Scope Clarification - Not Just Module PRs
+
+**Issue:** Cost tracking scope was assumed to be module implementation PRs only, but user expects it for ALL PRs where Claude is used.
+
+**What happened:**
+- PR #45 (docs/parameter-naming-convention) merged successfully
+- Documentation-only PR (DESIGN.md +39, CLAUDE.md +4)
+- No cost breakdown posted (I assumed cost tracking was module PRs only)
+- User asked: "did the PR 45 have the cost and token updated as part of merge?"
+- I explained: "PR #45 was doc-only, not a module implementation - I interpreted cost tracking as out-of-scope"
+- User clarified: "I want it posted for all PRs in the repo"
+- User noted caveat: "of course there will be some PRs that will not use Claude and could use other AI tools and some could be manually authored"
+
+**Impact of unclear scope:**
+- Incomplete cost tracking record (PR #45 had no breakdown)
+- Violated atomic posting rule (already merged when user asked)
+- Unclear guideline for contributors using other AI tools
+- No documented threshold for "when to track costs"
+
+**How we discovered it:**
+- User proactively checked PR #45 for cost breakdown
+- Asked directly about the missing breakdown
+- Revealed assumption gap: I thought "module PRs only", user meant "all Claude PRs"
+
+**Resolution implemented:**
+
+1. **Posted retroactive cost for PR #45:**
+   - Estimated: ~20-25 min, ~$0.15-0.20 (Sonnet 4.5)
+   - Posted as PR comment (after merge, with note about process gap)
+   - Comment link: https://github.com/vjayaramrh/cld_ai/pull/45#issuecomment-5771222313
+
+2. **Updated CLAUDE.md §6 - Cost tracking scope:**
+   - Clarified: "ALL PRs using Claude require cost breakdown (module, docs, fixes, all types)"
+   - Added caveat: "PRs using other AI tools or manually authored: note in PR or skip"
+   - Threshold: If Claude Code/API was used for any part of the PR, cost breakdown required
+   - Reinforced atomic rule: Cost + merge in same response (applies to ALL Claude PRs now)
+
+3. **This lesson-learned entry:**
+   - Documents the scope clarification
+   - Provides retroactive cost posting as Option C resolution
+   - Establishes clear threshold for future PRs
+
+**Lesson learned:**
+
+> **Cost tracking applies to ALL PRs where Claude is used, not just module implementations.**  
+> Explicit scope documentation prevents assumptions about "what counts."  
+> For non-Claude PRs (other AI or manual): note in PR description, cost breakdown optional.
+
+**What to do differently:**
+- When establishing tracking/reporting requirements, document explicit scope
+- Don't assume "obvious" boundaries (module vs. docs vs. fixes)
+- Caveat: Some PRs may use other tools → note in PR, don't guess at costs
+- Threshold test: "Was Claude Code/API used?" → YES = cost breakdown required
+- For mixed authorship (Claude + other AI): estimate Claude portion, note in breakdown
+
+**Artifacts:**
+- PR #45 retroactive cost comment (posted after merge)
+- CLAUDE.md §6 update (cost tracking scope clarification) - this PR
+- This lessons-learned entry
+
+**Cost tracking scope decision matrix:**
+
+| PR Type | Claude Used? | Cost Breakdown Required? |
+|---------|--------------|--------------------------|
+| Module implementation | Yes | ✅ Required (atomic with merge) |
+| Documentation | Yes | ✅ Required (atomic with merge) |
+| Fixes, refactors | Yes | ✅ Required (atomic with merge) |
+| Manual authoring | No | ❌ Note "manual" in PR description |
+| Other AI tool (GPT, etc.) | No | ❌ Note tool used, cost optional |
+| Mixed (Claude + manual) | Partial | ✅ Estimate Claude portion |
+
+**Why this matters:**
+- Tracks actual Claude usage across ALL work types (not just modules)
+- Provides complete cost visibility for the project
+- Enables future analysis: "What does doc work cost vs. module work?"
+- Transparent record for contributors using different tools
+
+**Validation questions for any PR:**
+1. Was Claude Code or Claude API used? → YES = cost breakdown required
+2. If other AI tool: Is it noted in PR description? → Must clarify
+3. If manual: Is it noted in PR description? → Must clarify
+4. If mixed: Is Claude's portion estimated? → Must separate
+
+---
+
 ## 2026-09-20: Process Compliance Gap - Documented Workflow Violated
 
 **Issue:** Documented workflow for atomic cost-breakdown-then-merge was violated even though it was clearly documented in CLAUDE.md §6 and feedback memory.
