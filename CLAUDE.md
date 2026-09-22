@@ -96,6 +96,10 @@ read it before adding a module.
   ```
   Document the findings in the issue or commit message. Never assume parameter names,
   types, or whether they're required — the spec is authoritative.
+- **Parameter naming:** Resource identifier parameters use **explicit forms**
+  (`cluster_id`, `infra_env_id`, `host_id`) not short forms (`id`). See DESIGN.md §5
+  for the architecture decision and rationale. Example: `cluster_info` uses
+  `cluster_id` (not `id`), matching the API path parameter `/v2/clusters/{cluster_id}`.
 
 ## Project / governance
 

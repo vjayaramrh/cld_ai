@@ -103,6 +103,45 @@ Galaxy / Automation-Hub publishable and reads the way Ansible users expect.
   the valid verbs self-document via `choices`. Precedent: `ansible.builtin.service`
   folds the imperative `restarted` / `reloaded` into a single module.
 
+### Parameter naming convention
+
+**Resource identifier parameters use explicit forms** (`cluster_id`, `infra_env_id`,
+`host_id`) not short forms (`id`).
+
+**Rationale:**
+- **100% consistent** across ALL modules — single-resource and multi-resource
+- Already established in `host_action` (implemented with `host_id` + `infra_env_id`)
+- Matches API path parameters exactly (`/v2/clusters/{cluster_id}`)
+- No ambiguity when modules reference multiple resources (e.g., `cluster_manifest`
+  needs both `cluster_id` and `manifest_id`)
+- Future-proof: adding a second resource doesn't force parameter renaming
+- Self-documenting in playbooks
+
+**Pattern:**
+```python
+# cluster_info module
+cluster_id=dict(type="str")    # Explicit, matches API path parameter
+
+# infra_env module  
+infra_env_id=dict(type="str")  # For updates
+cluster_id=dict(type="str")    # Optional association
+
+# host_action module (already implemented)
+host_id=dict(type="str", required=True)
+infra_env_id=dict(type="str", required=True)
+```
+
+**Multi-resource consistency:**
+When a module operates on hosts within infra-envs (like `host_action`), both
+identifiers are explicit (`host_id`, `infra_env_id`) — never mixing short and
+explicit forms in the same module.
+
+**Precedent:** amazon.aws uses `instance_ids` (explicit); our `host_action` uses
+explicit forms (proven pattern in this collection).
+
+**Trade-off accepted:** Slightly more verbose than short forms (`id`), but consistency
+and clarity across 71 modules outweighs brevity.
+
 References: Ansible module dev guide (`developing_modules_general`,
 `developing_modules_best_practices`); real-world examples that follow this scheme —
 amazon.aws (`ec2_instance` + `ec2_instance_info`), kubernetes.core (`k8s` +
