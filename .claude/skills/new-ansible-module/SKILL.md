@@ -24,6 +24,85 @@ elsewhere.
 7. **Finish only** via `module.exit_json(...)` / `module.fail_json(msg=...)`.
 8. **HTTP** via `ansible.module_utils.urls.fetch_url` — never `requests`.
 
+## Documentation Standards (Critical)
+
+Per the [Ansible Module Documentation Guide](https://docs.ansible.com/projects/ansible/latest/dev_guide/developing_modules_documenting.html):
+
+### 1. List Types Must Specify `elements`
+
+**Always** include the `elements` attribute for list-type parameters and returns:
+
+```yaml
+# In DOCUMENTATION (for arguments)
+options:
+  cluster_ids:
+    description: List of cluster identifiers.
+    type: list
+    elements: str    # ← REQUIRED
+
+# In RETURN (for return values)
+RETURN = r'''
+clusters:
+  description: List of cluster resources.
+  type: list
+  elements: dict   # ← REQUIRED
+'''
+```
+
+**Why:** Declares the data type of list items, ensuring consistency between documentation and validation.
+
+### 2. Return Structure Must Be Static
+
+**Never** return different types from the same key based on parameters. This is an anti-pattern.
+
+```yaml
+# ❌ WRONG - Polymorphic return type
+supported_operators:
+  type: raw  # Returns list[str] OR list[dict] depending on parameters
+
+# ✅ CORRECT - Separate keys for different types
+operator_names:
+  type: list
+  elements: str
+operator_properties:
+  type: list
+  elements: dict
+```
+
+**Why:** Playbook writers expect consistent data schemas. Polymorphic types make Jinja2 templates unpredictable.
+
+### 3. Info Modules Return Lists
+
+For `_info` modules, return lists consistently, even for single-item lookups:
+
+```yaml
+# ✅ CORRECT - Always returns list
+clusters:
+  type: list
+  elements: dict
+  sample:
+    - id: "uuid"
+      name: "cluster-1"
+
+# Users access with: result.clusters[0] or result.clusters | first
+```
+
+**Why:** Follows Ansible ecosystem patterns (ec2_instance_info, docker_container_info, etc.)
+
+### 4. Short Description Rules
+
+- **No trailing period** in `short_description`
+- Capitalized first word
+- Under 80 characters
+
+```yaml
+# ✅ CORRECT
+short_description: List OpenShift clusters from the Assisted Installer
+
+# ❌ WRONG
+short_description: list openshift clusters from the assisted installer.
+```
+
 ## 1. Gather what you can't guess
 
 - **Module name** (snake_case).
@@ -117,7 +196,9 @@ RETURN = r'''
 <key>:
   description: <...>
   returned: always
-  type: <str|bool|...>
+  type: <str|bool|dict|list>
+  # elements: <str|dict|int>  # REQUIRED if type is list
+  sample: <example value>
 '''
 
 from ansible.module_utils.basic import AnsibleModule

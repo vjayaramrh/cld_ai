@@ -265,7 +265,33 @@ All model recommendations are provisional until validated with cluster_info (#10
 Run through this **BEFORE** marking your PR ready. This catches what automated
 tools might miss:
 
-### 1. Documentation completeness
+### 0. Skill authoring verification (if creating/updating skills)
+
+**Skills are teaching tools — broken patterns multiply. Extra verification required:**
+
+- [ ] **External specs cited and verified** — If the skill references external tools
+  (Ansible Galaxy, ansible-test, plugin API, Galaxy metadata), verify against the
+  authoritative source and cite it in the skill. Don't assume patterns/syntax.
+  **Pattern: Check official docs → cite source in skill.**
+- [ ] **Code examples are executable** — If showing example code (test helpers, mock
+  patterns, multi-step examples), verify it actually runs. Copy the code + example
+  into a scratch file and execute it. Gray errors (looks right, implements wrong)
+  propagate through teaching materials.
+- [ ] **Multi-step examples tested** — If showing idempotency, state transitions,
+  or multi-call patterns, verify the helper/pattern supports them. Single-call
+  examples hide broken state management.
+- [ ] **Edge cases included** — Don't skip falsy values (empty lists, None, zero)
+  in examples. These catch lazy conditionals (`if body` vs `if body is not None`).
+
+**Why this matters:**
+- Three spec verification failures in 14 days (env: keyword, support level definition, namespace pattern)
+- Gray error in mock pattern caught by CodeRabbit (looked correct, wouldn't work)
+- Skills teach patterns → one broken skill creates many broken implementations
+
+**References:** lessons-learned.md entries "Specification Verification Pattern",
+"Mock Pattern Correctness" (both 2026-09-22)
+
+### 1. Module documentation completeness
 - [ ] **RETURN documents EVERY field from `exit_json`** — Run your module, capture
   the actual result dict, compare it to your RETURN block. Don't document only
   the domain object; include `changed`, `msg`, and any other fields you return.
@@ -287,6 +313,10 @@ tools might miss:
   a request that the API rejects.
 - [ ] **Write-only fields are excluded from drift** — `pull_secret`, keys, tokens:
   send on create, never compare (API doesn't return them).
+- [ ] **External spec references verified** — If documenting patterns/syntax from
+  external tools (Ansible Galaxy, ansible-test, plugin API), verify against
+  authoritative source and cite it. Pattern: "Check official docs before documenting."
+  See lessons-learned.md "Specification Verification Pattern" (2026-09-22).
 
 ### 3. Test pattern verification
 - [ ] **Idempotency tests run the action TWICE** — Not "start already in target state."
@@ -300,6 +330,11 @@ tools might miss:
   conditions that happen to trigger a different error.
 - [ ] **All 5 test categories covered** — Lifecycle, idempotency, check-mode,
   safety guards, API contract (see DESIGN.md §7 and `docs/testing-cheat-sheet.md`).
+- [ ] **Test helpers are executable** — If creating/updating test helper patterns
+  (mock functions, fixtures), verify the examples shown actually run with that helper.
+  Gray errors: code that looks right but implements wrong behavior. Multi-step
+  examples catch broken state management. See lessons-learned.md "Mock Pattern
+  Correctness" (2026-09-22).
 
 ### 4. Run the verification suite
 ```bash
@@ -350,6 +385,11 @@ recording a lesson is only required when the evaluation says "yes."
 
 **After opening the PR:**
 
+- [ ] **Update status tracking documents** — If this PR completes tracked work
+  (roadmap item, project board task, phase checklist), update the tracking doc
+  IN THIS PR. Status docs (roadmaps, checklists, DONE.md) must reflect current
+  state, not stale planning. See lessons-learned.md "Status Tracking Maintenance"
+  (2026-09-22).
 - [ ] **Wait for CI checks** — All must pass before merge
 - [ ] **Address CodeRabbit findings:**
   - Read all review comments
