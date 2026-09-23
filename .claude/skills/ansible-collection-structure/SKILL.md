@@ -140,8 +140,7 @@ build_ignore:
 
 **namespace + name:**
 - MUST match directory path
-- Lowercase, underscores allowed
-- Pattern: `^[a-z0-9_]+$`
+- Rules: start with a lowercase letter; use only lowercase letters, digits, and underscores; do not use consecutive underscores.
 
 **version:**
 - Semantic versioning: `MAJOR.MINOR.PATCH`

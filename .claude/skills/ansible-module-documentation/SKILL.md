@@ -45,7 +45,6 @@ options:
 ```yaml
 requirements:
   - "python >= 3.9"
-  - "requests library"
 notes:
   - Important caveats or warnings.
   - Unexpected behavior to document.
@@ -325,9 +324,9 @@ operator_properties:
   elements: dict
 ```
 
-#### 3. Info Modules Return Lists
+#### 3. Collection-Valued Results in Info Modules
 
-Even for single-item lookups:
+For collection-valued resource results, return a list for zero, one, or many matches:
 
 ```yaml
 # ✅ CORRECT

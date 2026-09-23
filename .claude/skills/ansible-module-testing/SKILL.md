@@ -198,12 +198,39 @@ def test_encodes_query_parameters(monkeypatch):
 #### Mock fetch_url
 
 ```python
-def mock_api_response(monkeypatch, status=200, body=None):
-    """Mock fetch_url to return canned responses."""
+def mock_api_response(monkeypatch, status=200, body=None, responses=None):
+    """Mock fetch_url to return canned responses.
+    
+    Args:
+        monkeypatch: pytest monkeypatch fixture
+        status: HTTP status code for single response
+        body: Response body for single response
+        responses: List of (status, body) tuples for queued responses
+    """
+    class Response:
+        def __init__(self, data):
+            self.data = data
+
+        def read(self):
+            return self.data
+
+    if responses is None:
+        responses = [(status, body)]
+    
+    response_queue = list(responses)
+    
     def fake_fetch_url(module, url, **kwargs):
-        response_body = json.dumps(body).encode() if body else b""
-        info = {"status": status, "body": response_body}
-        return (None, info)
+        if not response_queue:
+            raise RuntimeError("mock_api_response: response queue exhausted")
+        
+        status_code, response_body = response_queue.pop(0)
+        encoded_body = json.dumps(response_body).encode() if response_body is not None else b""
+        info = {"status": status_code}
+        
+        if status_code >= 400:
+            info["body"] = encoded_body
+            return (None, info)
+        return (Response(encoded_body), info)
     
     monkeypatch.setattr("my_module.fetch_url", fake_fetch_url)
 ```
@@ -347,8 +374,9 @@ Use `base_url` parameter to redirect to mock:
 # In module argument_spec
 base_url=dict(type="str", default="https://api.openshift.com")
 
-# In module code
-url = f"{module.params['base_url']}/api/assisted-install/v2/clusters"
+# In module code - use shared request() method
+from ..module_utils import assisted_installer as ai
+data, info = ai.request(module, "GET", "/clusters", token)
 ```
 
 **Integration test override:**
@@ -403,7 +431,7 @@ ansible-test coverage report
 ansible-test coverage report --show-missing
 
 # Enforce minimum (project uses 90%)
-ansible-test coverage report --requirements
+./run.sh --check
 ```
 
 ---
@@ -498,5 +526,5 @@ ansible-test coverage report --show-missing
 ansible-test integration --docker
 
 # Specific test
-ansible-test units test_my_module::test_creates_resource --docker -vvv
+ansible-test units tests/unit/plugins/modules/test_my_module.py::test_creates_resource --docker -vvv
 ```
