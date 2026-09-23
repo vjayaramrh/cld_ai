@@ -91,6 +91,226 @@ A chronological journal of issues discovered, resolutions implemented, and lesso
 
 ---
 
+## 2026-09-22: Specification Verification Pattern - Third Occurrence
+
+**Issue:** Assumed namespace/name validation pattern without checking Ansible Galaxy requirements (third time making specification assumptions).
+
+**What happened:**
+- While creating `ansible-collection-structure` skill for PR #50
+- Documented namespace/name rules as: `Pattern: ^[a-z0-9_]+$`
+- CodeRabbit review caught this accepts invalid names:
+  - Starting with digit: `9foo` (❌ Galaxy rejects)
+  - Starting with underscore: `_bar` (❌ Galaxy rejects)
+  - Consecutive underscores: `foo__bar` (❌ Galaxy rejects)
+- Didn't verify against authoritative source (Ansible Galaxy metadata requirements)
+- This is the **THIRD occurrence** of this pattern:
+  1. **PR #28 (2026-09-08):** Assumed `env:` keyword was for modules (it's plugin-specific)
+  2. **PR #31 (2026-09-15):** Assumed "support level" definition without verifying
+  3. **PR #50 (now):** Assumed namespace pattern without checking Galaxy spec
+
+**Impact:**
+- Skill would teach contributors to create invalid galaxy.yml
+- `ansible-galaxy collection build` would accept it locally
+- Upload to Galaxy would fail with validation error
+- Wasted time fixing invalid collection metadata
+
+**How we discovered it:**
+- CodeRabbit static analysis caught the pattern accepts invalid forms
+- Linked to official docs: https://docs.ansible.com/projects/ansible/latest/dev_guide/collections_galaxy_meta.html
+- Recommended explicit rules instead of regex
+
+**Resolution implemented:**
+1. **Fixed the skill:**
+   - Replaced regex pattern with explicit rules
+   - "Start with lowercase letter; use only lowercase letters, digits, underscores; no consecutive underscores"
+   - Matches Galaxy requirements exactly
+
+2. **Pattern recognition:**
+   - This is the third specification assumption in 14 days
+   - Each time: assumed pattern → didn't verify → caught in review
+   - Common thread: documentation/skill creation without checking authoritative source
+
+**Lesson learned:**
+
+> **Before documenting ANY specification (API, Galaxy, ansible-test, etc.), verify against the authoritative source.**  
+> This is now a PATTERN - three occurrences means it's systemic, not isolated.
+
+**What to do differently:**
+- **New rule:** When writing skills/docs that reference external specs, cite the source
+- **Verification checklist for skills:**
+  1. Does this skill reference an external spec/API/tool?
+  2. If YES: Have I checked the authoritative docs/spec?
+  3. If NO: Am I making an assumption that could be wrong?
+  4. Can I link to the source in the skill?
+- **Pattern examples:**
+  - API parameters → Check OpenAPI spec
+  - Galaxy metadata → Check Galaxy meta docs  
+  - ansible-test syntax → Check ansible-test --help or official docs
+  - Module doc format → Check developing_modules_documenting.html
+
+**Artifacts:**
+- PR #50: fix (CodeRabbit review comment, commit a3aa218)
+- Related lessons: "API Spec Verification Gap" (2026-09-08), "Terminology Precision" (2026-09-15)
+
+**Why this matters:**
+- Third occurrence elevates this from "mistake" to "systemic pattern"
+- Pattern cuts across different spec types (API, plugin system, Galaxy)
+- Always caught in review, never prevented upfront
+- Time cost: review cycle + fix commit for every occurrence
+
+**Prevention going forward:**
+- Treat all external references as "verify before documenting"
+- Link to authoritative source in the skill/doc
+- When in doubt, grep the official docs or run the tool with --help
+
+---
+
+## 2026-09-22: Mock Pattern Correctness - Gray Error in Test Helper
+
+**Issue:** Test helper mock_api_response looked correct but had fatal flaws that would break actual use.
+
+**What happened:**
+- While creating `ansible-module-testing` skill for PR #50
+- Wrote a mock_api_response() helper for unit tests
+- Original implementation had three flaws:
+  1. **Response queuing broken:** Each call to mock_api_response() replaced the mock, so multi-step tests (GET → POST) wouldn't work
+  2. **Wrong response shape:** Returned `(None, info)` for ALL statuses, but successful responses should return `(Response, info)`
+  3. **Falsy body handling:** `if body` converted empty list `[]` to empty bytes, breaking idempotency tests
+- CodeRabbit caught all three issues:
+  - "Queue mock responses instead of replacing the mock"
+  - "Return a response object for successful API mocks"
+  - "Preserve falsy JSON response bodies"
+- This is a **gray error:** code looks plausible, would pass casual review, fails in practice
+
+**Impact:**
+- Skill taught a broken pattern that LOOKS correct
+- Idempotency test examples in the skill wouldn't actually work:
+  ```python
+  # This example wouldn't run correctly:
+  mock_api_response(monkeypatch, 200, {"id": "123"})  # GET
+  mock_api_response(monkeypatch, 201, {})  # POST - replaces first mock!
+  ```
+- Contributors copying the pattern would hit failures
+- Tests would fail with confusing errors (AttributeError on resp.read())
+
+**How we discovered it:**
+- CodeRabbit static analysis identified the pattern flaws
+- Each finding included a specific failure scenario
+- Confirmed the examples in the skill wouldn't execute correctly
+
+**Resolution implemented:**
+1. **Fixed the mock pattern:**
+   - Added `responses` parameter for queueing: `[(status1, body1), (status2, body2)]`
+   - Created Response class with read() method for successful calls
+   - Changed `if body` to `if body is not None` for falsy value handling
+   - Pattern now supports the idempotency examples shown
+
+2. **Why this matters - gray errors:**
+   - Pattern LOOKED correct (had the right structure)
+   - Would pass a surface review (uses monkeypatch, returns tuples)
+   - FAILS in actual use (doesn't match fetch_url contract)
+   - This is exactly what research calls a "gray error" (appears correct, implements wrong behavior)
+
+**Lesson learned:**
+
+> **Test helper patterns must be EXECUTABLE, not just plausible.**  
+> If the skill shows example usage, verify the helper actually supports that usage.
+
+**What to do differently:**
+- **For test helpers in skills:** Actually run the examples shown
+- **Pattern validation:**
+  1. Does the skill show usage examples?
+  2. If YES: Can I copy the helper + example and run it?
+  3. If NO: The helper is incomplete or wrong
+- **Gray error detection:**
+  - Looks right ≠ works right
+  - Multi-step examples catch broken state management
+  - Edge cases (falsy values) catch lazy conditionals
+
+**Artifacts:**
+- PR #50: fix (CodeRabbit review comments, commit a3aa218)
+- Fixed pattern in `.claude/skills/ansible-module-testing/SKILL.md`
+
+**Why this matters:**
+- Skills are teaching tools - broken patterns multiply
+- Gray errors are WORSE than obvious bugs (they propagate)
+- Static analysis caught what human review might miss
+- Research-backed concept: 75% of AI-generated code passes tests but has wrong logic
+
+**Prevention going forward:**
+- Test helper code in skills must be runnable as-is
+- If showing multi-step examples, verify the helper supports them
+- Don't skip edge cases (empty lists, None, zero) in examples
+
+---
+
+## 2026-09-22: Status Tracking Maintenance - Roadmap Not Updated
+
+**Issue:** Created roadmap to track skill development but didn't update it when skills were completed.
+
+**What happened:**
+- PR #50 created three skills: `ansible-module-documentation`, `ansible-module-testing`, `ansible-collection-structure`
+- Also created `docs/skill-development-roadmap.md` to track the work
+- Roadmap included a Phase 1 checklist and status markers
+- Completed all three skills but left roadmap showing:
+  - Status: "📝 Planned" (should be "✅ Created")
+  - Phase 1 checklist: unchecked boxes (should be all checked)
+  - Current Skills table: missing the three new skills
+- CodeRabbit caught this: "Synchronize the roadmap with the skills added in this PR"
+
+**Impact:**
+- Roadmap claims work is planned but it's actually done
+- Contributors checking status see incorrect state
+- Defeats the purpose of having a roadmap
+- "Planned" vs "Created" matters for deciding what to work on next
+
+**How we discovered it:**
+- CodeRabbit review: "The roadmap still marks ... as planned"
+- Pointed out three places needing updates (status, checklist, current skills table)
+
+**Resolution implemented:**
+1. **Updated roadmap (commit a3aa218):**
+   - Changed status from "📝 Planned" to "✅ Created" for all three skills
+   - Marked Phase 1 checklist items as complete
+   - Added three skills to "Current Skills" table
+   - Changed Phase 1 header from "Current" to "Complete"
+
+2. **Why this happened:**
+   - Created roadmap at START of work (planning phase)
+   - Completed work but didn't revisit roadmap
+   - Missing step: "update status tracking when work completes"
+
+**Lesson learned:**
+
+> **Status tracking documents must be updated when state changes, not just created.**  
+> Creating a roadmap/checklist without maintaining it is worse than not having one.
+
+**What to do differently:**
+- **Workflow addition:** When completing tracked work, update the tracking doc IN THE SAME PR
+- **Pattern:**
+  1. Work starts → roadmap shows "in progress"
+  2. Work completes → roadmap shows "completed"
+  3. PR includes BOTH the work AND the status update
+- **Verification:** Before marking PR ready, check all status docs for stale state
+- **Examples of status docs:** roadmap, project board, DONE.md, phase tracking
+
+**Artifacts:**
+- PR #50: fix (CodeRabbit review comment, commit a3aa218)
+- Updated `docs/skill-development-roadmap.md`
+
+**Why this matters:**
+- Status docs are for OTHERS (contributors, future work planning)
+- Stale status wastes time ("Is this done?" → check code, not doc)
+- Creating tracking then not maintaining it erodes trust in docs
+- Pattern applies to all status docs (boards, checklists, roadmaps)
+
+**Prevention going forward:**
+- Status updates are part of completing work, not optional
+- Check status docs before marking PR ready
+- If work creates a tracking doc, work completion must update it
+
+---
+
 ## 2026-09-20: Process Compliance Gap - Documented Workflow Violated
 
 **Issue:** Documented workflow for atomic cost-breakdown-then-merge was violated even though it was clearly documented in CLAUDE.md §6 and feedback memory.
