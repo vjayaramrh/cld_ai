@@ -1,0 +1,10 @@
+---
+# ansible-lint configuration for openshift_lab.assisted_installer collection
+
+exclude_paths:
+  - .cache/
+  - .github/
+  - .devcontainer/
+  - tests/output/
+  - scripts/manual-smoke/  # Manual smoke tests, not for CI (see scripts/manual-smoke/README.md)
+  - '*.tar.gz'
