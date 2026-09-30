@@ -23,6 +23,12 @@ string.
   return a body with sensitive data; don't blindly put it in `fail_json`. Prefer
   the status code and a safe message. If a body is genuinely needed for
   debugging, be sure it cannot contain a token or `pull_secret`.
+- **Don't echo secret-bearing *inputs* either.** A value like `base_url` can embed
+  credentials (`https://user:pass@host`). A validation or error message must omit
+  the raw value, and checks must be ordered so any message that *does* include it
+  runs only after credentials are ruled out — otherwise the guard meant to reject a
+  secret ends up leaking it (see `_validate_base_url`, and lessons-learned.md
+  2026-09-30 "A Validation Error Message Leaked the Secret It Was Guarding").
 - **Never commit secrets.** `.gitignore` blocks the common shapes (`*.token`,
   `*token*.txt`, `pull_secret*`, `pull-secret*.json`, `.env`), and a
   secret-scanning gate (below) runs in CI — but the first line of defense is not

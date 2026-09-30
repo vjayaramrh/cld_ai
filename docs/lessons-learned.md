@@ -6,6 +6,50 @@ A chronological journal of issues discovered, resolutions implemented, and lesso
 
 ---
 
+## 2026-09-30: A Validation Error Message Leaked the Secret It Was Guarding
+
+**Issue:** PR #54 added a check to `_validate_base_url` that rejects a `base_url`
+carrying embedded credentials (`https://user:pass@host`) — the whole point being to
+*prevent* credential leakage. CodeRabbit found the fix itself leaked: for
+`https://user:pass@` (credentials, **no host**), `urlparse()` returns no hostname
+but keeps the credentials, so the pre-existing hostname check ran first and raised
+`"base_url must include a hostname, got: %s" % url` — echoing the full URL, password
+and all, straight into `fail_json`.
+
+**Root cause (three things lined up):**
+1. A validation **error message echoed the raw, secret-bearing input** (the URL).
+2. **Check ordering** — the URL-echoing hostname check ran *before* the credential
+   check (whose message omits the URL).
+3. The new **no-leak test only covered the with-host case**
+   (`https://u:pass@evil.com`), where the hostname check passes and the credential
+   check fires safely — so it went green while the no-host edge leaked.
+
+**How we discovered it:** CodeRabbit flagged it as a Major security finding on the
+PR; verified with `urlparse('https://alice:secret@')` → `hostname=None`,
+`password='secret'`.
+
+**Resolution implemented:** Reordered so the credential check (message omits the
+URL) runs before the hostname check; added no-host regression cases to both the
+userinfo-rejection and password-leak tests (commit 4530f41).
+
+**Lesson learned:** When validating a value that can embed a secret (a URL with
+userinfo, a DSN, a connection string), (a) never echo the raw value in an error
+message, and (b) order the checks so any message that includes the raw value runs
+only *after* the secret has been ruled out. And test the leak-prevention with the
+edge case that breaks the ordering (empty/missing host), not just the happy path —
+a "does not leak" test that only exercises the easy input passes while the real
+gap ships. This generalizes the existing "never echo secret-bearing response
+bodies" rule to *inputs* and *error messages*.
+
+**What to do differently:**
+- Treat error-message text as an output channel for secrets: audit every
+  `fail_json`/`ValueError` message that interpolates a user-supplied value that
+  could embed a credential.
+- For any "does not leak X" test, include the boundary input that makes an
+  earlier, value-echoing branch fire (here: no host).
+
+---
+
 ## 2026-09-30: Shared Client Had No Direct Tests - Error Paths Hid in Indirect Coverage
 
 **Issue:** A code audit found real defects in `plugins/module_utils/assisted_installer.py`
