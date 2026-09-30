@@ -81,6 +81,38 @@ flowchart TD
     A2 -->|no| A4[perform the verb<br/>changed = TRUE]
 ```
 
+### How much should an action module guard? (coarse guards, API is authority)
+
+An action module reads status for two reasons the API cannot serve for us, so the
+GET is never optional:
+
+1. **Idempotency reporting** — the API has no "you're already there, nothing to do"
+   success; it either errors or re-triggers. Only a GET-then-compare lets us return
+   `changed=False` on a converged re-run (so `install` on an already-installing host
+   is a no-op, not a red task).
+2. **Check mode** — `--check` can only predict what we encode client-side. If we
+   delegated precondition checks to the API, check mode would go blind to them
+   (predict "would act", then a real run fails).
+
+But the GET is *not* a licence to replicate the API's full state machine. The
+guidance:
+
+- **Guard on coarse, stable status *groups*, not a fine-grained transition graph.**
+  "Is the host installing?" (the `preparing-*` / `installing-*` group) is durable
+  API surface; an exhaustive allowlist of every source status that permits a verb
+  drifts as the API evolves (we shipped exactly that drift bug — `install` failed
+  on the `preparing-*` states because they were missing from a hardcoded list).
+- **Let the API be the final authority on validity.** Any transition we don't
+  pre-guard still fires the POST and maps a non-2xx to `fail_json`. We do not try to
+  pre-reject everything the API would reject. This mirrors `kubernetes.core.k8s`,
+  which always reads state but delegates the merge/validation to the server
+  (server-side apply); see the module dev guide's "observe before act" idempotency
+  rule and the k8s `server_side_apply` precedent.
+- **Prefer a coarse guard only where it earns its keep** — a no-op the API can't
+  express, a check-mode prediction users rely on, or a clearly-actionable message
+  for a common mistake (e.g. refusing `unbind` on a mid-installation host). Don't
+  add fine-grained per-verb source-state allowlists beyond that.
+
 ## 5. Module naming convention
 
 Names follow Ansible's **published** module conventions so the collection is
