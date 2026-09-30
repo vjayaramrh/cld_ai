@@ -6,6 +6,97 @@ A chronological journal of issues discovered, resolutions implemented, and lesso
 
 ---
 
+## 2026-09-30: A Validation Error Message Leaked the Secret It Was Guarding
+
+**Issue:** PR #54 added a check to `_validate_base_url` that rejects a `base_url`
+carrying embedded credentials (`https://user:pass@host`) — the whole point being to
+*prevent* credential leakage. CodeRabbit found the fix itself leaked: for
+`https://user:pass@` (credentials, **no host**), `urlparse()` returns no hostname
+but keeps the credentials, so the pre-existing hostname check ran first and raised
+`"base_url must include a hostname, got: %s" % url` — echoing the full URL, password
+and all, straight into `fail_json`.
+
+**Root cause (three things lined up):**
+1. A validation **error message echoed the raw, secret-bearing input** (the URL).
+2. **Check ordering** — the URL-echoing hostname check ran *before* the credential
+   check (whose message omits the URL).
+3. The new **no-leak test only covered the with-host case**
+   (`https://u:pass@evil.com`), where the hostname check passes and the credential
+   check fires safely — so it went green while the no-host edge leaked.
+
+**How we discovered it:** CodeRabbit flagged it as a Major security finding on the
+PR; verified with `urlparse('https://alice:secret@')` → `hostname=None`,
+`password='secret'`.
+
+**Resolution implemented:** Reordered so the credential check (message omits the
+URL) runs before the hostname check; added no-host regression cases to both the
+userinfo-rejection and password-leak tests (commit 4530f41).
+
+**Lesson learned:** When validating a value that can embed a secret (a URL with
+userinfo, a DSN, a connection string), (a) never echo the raw value in an error
+message, and (b) order the checks so any message that includes the raw value runs
+only *after* the secret has been ruled out. And test the leak-prevention with the
+edge case that breaks the ordering (empty/missing host), not just the happy path —
+a "does not leak" test that only exercises the easy input passes while the real
+gap ships. This generalizes the existing "never echo secret-bearing response
+bodies" rule to *inputs* and *error messages*.
+
+**What to do differently:**
+- Treat error-message text as an output channel for secrets: audit every
+  `fail_json`/`ValueError` message that interpolates a user-supplied value that
+  could embed a credential.
+- For any "does not leak X" test, include the boundary input that makes an
+  earlier, value-echoing branch fire (here: no host).
+
+---
+
+## 2026-09-30: Shared Client Had No Direct Tests - Error Paths Hid in Indirect Coverage
+
+**Issue:** A code audit found real defects in `plugins/module_utils/assisted_installer.py`
+that had shipped undetected: `_validate_base_url` accepted a `base_url` carrying
+embedded credentials (`https://user:pass@host`), and `_refresh_token` did an
+unguarded `json.loads(resp.read())` that would escape as a raw
+`ValueError`/`AttributeError` on a 200 with an empty or non-object body (violating
+the "finish only via exit_json/fail_json" contract).
+
+**What happened:** The shared client had no dedicated unit test file — it was only
+exercised *indirectly* through the module tests. Those tests only drive the
+`api_token` path, so the token-refresh branch was never executed. Coverage on the
+file sat at 79% with lines 117–136 (the entire `_refresh_token` body) uncovered,
+and the branch coverage gate didn't catch it because the module tests never enter
+that code at all.
+
+**Impact:** No module was broken in normal use (production always resolves an
+`api_token`), but the offline-token refresh path and the integration `base_url`
+override were both under-tested — one a robustness gap, one a credential-leak vector.
+
+**How we discovered it:** Four parallel review agents audited the client and each
+module against the OpenAPI spec; the client findings were then verified line-by-line
+against the source before being treated as real.
+
+**Resolution implemented:** Added `tests/unit/plugins/module_utils/test_assisted_installer.py`
+(with its own conftest reusing the shared `ansible_helpers`), written TDD-first
+(red → green). Fixed `_validate_base_url` to reject userinfo (message omits the URL
+so the password can't leak), guarded the refresh parse to require a dict, dropped
+empty-list query values in `build_url`, added a defensive no-token guard in
+`request()`, and made `timeout=0` pass through instead of silently becoming 30.
+Client coverage rose 79% → 95% (total 94% → 96%). PR on branch
+`fix/shared-client-hardening`.
+
+**Lesson learned:** Cross-cutting code in `module_utils/` needs its OWN unit tests,
+not just incidental coverage from the modules that call it. "Overall coverage ≥90%"
+can hide a shared file whose error branches are entirely unexecuted — check
+per-file coverage on `module_utils/`, and add a direct test whenever a branch there
+isn't reachable from any module's happy path.
+
+**What to do differently:**
+- Give every `module_utils/` file a dedicated test target; don't rely on module
+  tests to cover its error/refresh/validation branches.
+- When adding a shared-client capability (a new auth path, a new validation rule),
+  add its unit test in the same PR, including the falsy/empty/non-object inputs.
+
+---
+
 ## 2026-09-30: Skills Drifted From Real Code - Teaching Materials Need Executable Verification
 
 **Issue:** An audit of the five `.claude/skills/*/SKILL.md` files found nine defects

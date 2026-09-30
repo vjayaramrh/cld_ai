@@ -84,8 +84,10 @@ if info["status"] != 200:
 ```
 
 Never import `requests`; never build the base URL or Authorization header by hand;
-always rely on the client's timeout. `base_url` is validated (HTTPS always allowed;
-HTTP only for loopback 127.0.0.1/localhost) to prevent credential leakage.
+always rely on the client's timeout. `base_url` is validated to prevent credential
+leakage: HTTPS is always allowed, HTTP only for loopback (127.0.0.1/localhost/::1),
+and an embedded-credentials form (`https://user:pass@host`) is rejected outright so
+the bearer token can never be sent to a userinfo host.
 
 ## 4. Module shape (fill from §1/§2)
 

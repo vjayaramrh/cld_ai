@@ -39,6 +39,16 @@ def _validate_base_url(url):
     """
     parsed = urlparse(url)
 
+    # Reject embedded credentials (userinfo) FIRST — before any check whose
+    # message echoes the URL. A base_url like https://user:pass@host would send
+    # the bearer token to that host; and a form like https://user:pass@ (no host)
+    # parses to no hostname but keeps the credentials, so the hostname check below
+    # must not run first or its "got: <url>" message would leak the password. This
+    # message deliberately omits the URL.
+    if parsed.username or parsed.password:
+        raise ValueError(
+            "base_url must not include embedded credentials (username/password)"
+        )
     # Require a hostname for any scheme
     if not parsed.hostname:
         raise ValueError(
@@ -78,9 +88,15 @@ def build_url(path, query=None, base_url=None):
         # drop None/empty values; join lists as comma-separated
         clean = {}
         for k, v in query.items():
-            if v is None or v == "":
+            if v is None:
                 continue
-            clean[k] = ",".join(v) if isinstance(v, (list, tuple)) else v
+            if isinstance(v, (list, tuple)):
+                if not v:            # empty list/tuple -> omit the param entirely
+                    continue
+                v = ",".join(v)
+            if v == "":              # empty string (incl. joined-empty) -> omit
+                continue
+            clean[k] = v
         if clean:
             url = "%s?%s" % (url, urlencode(clean))
     return url
@@ -129,7 +145,16 @@ def _refresh_token(module, offline_token):
     )
     if info.get("status") != 200:
         module.fail_json(msg="Failed to refresh API token (HTTP %s)" % info.get("status"))
-    body = json.loads(resp.read())
+    # A 200 with an empty, non-JSON, or non-object body must fail cleanly via
+    # fail_json — never escape as a raw ValueError/AttributeError traceback.
+    try:
+        body = json.loads(resp.read()) if resp is not None else None
+    except (ValueError, AttributeError):
+        body = None
+    if not isinstance(body, dict):
+        module.fail_json(
+            msg="Token refresh returned an unexpected or unparseable response body"
+        )
     token = body.get("access_token")
     if not token:
         module.fail_json(msg="Token refresh response did not contain an access_token")
@@ -146,6 +171,11 @@ def request(module, method, path, token, body=None, query=None, timeout=None,
 
     ``base_url`` overrides the production API base (integration mock only).
     """
+    # Defense in depth: resolve_token never returns None (it fail_jsons), but
+    # never send "Bearer None" if a caller passes a falsy token.
+    if not token:
+        module.fail_json(msg="Cannot make an authenticated request without a token")
+
     if base_url:
         try:
             _validate_base_url(base_url)
@@ -170,9 +200,11 @@ def request(module, method, path, token, body=None, query=None, timeout=None,
         headers["Content-Type"] = "application/json"
         payload = json.dumps(body)
 
+    # Honor an explicit timeout of 0; only substitute the default when unset.
+    effective_timeout = DEFAULT_TIMEOUT if timeout is None else timeout
     resp, info = fetch_url(
         module, url, data=payload, headers=headers, method=method.upper(),
-        timeout=timeout or DEFAULT_TIMEOUT, use_proxy=use_proxy,
+        timeout=effective_timeout, use_proxy=use_proxy,
     )
 
     # Parse body from either resp.read() (success) or info["body"] (error).

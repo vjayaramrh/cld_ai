@@ -52,7 +52,9 @@ read it before adding a module.
 9. **Finish only** via `module.exit_json(...)` / `module.fail_json(msg=...)`.
    Never raise raw exceptions or `sys.exit`.
 10. **Secrets in code:** `no_log=True` on secret args; never echo response bodies
-    that may contain secrets.
+    — or secret-bearing inputs like a `base_url` with embedded credentials — that
+    may contain secrets (and order validation checks so any message echoing such an
+    input runs only after credentials are ruled out).
 
 ## Module authoring rules (prevent real sanity failures)
 

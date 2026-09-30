@@ -23,6 +23,12 @@ string.
   return a body with sensitive data; don't blindly put it in `fail_json`. Prefer
   the status code and a safe message. If a body is genuinely needed for
   debugging, be sure it cannot contain a token or `pull_secret`.
+- **Don't echo secret-bearing *inputs* either.** A value like `base_url` can embed
+  credentials (`https://user:pass@host`). A validation or error message must omit
+  the raw value, and checks must be ordered so any message that *does* include it
+  runs only after credentials are ruled out — otherwise the guard meant to reject a
+  secret ends up leaking it (see `_validate_base_url`, and lessons-learned.md
+  2026-09-30 "A Validation Error Message Leaked the Secret It Was Guarding").
 - **Never commit secrets.** `.gitignore` blocks the common shapes (`*.token`,
   `*token*.txt`, `pull_secret*`, `pull-secret*.json`, `.env`), and a
   secret-scanning gate (below) runs in CI — but the first line of defense is not
@@ -34,7 +40,10 @@ If no token resolves, the module must **`fail_json` with a clear message** — n
 send `Authorization: Bearer None`. The shared client's `resolve_token()` already
 does this; use it instead of reading the token yourself. Its precedence is:
 `api_token` param → `AI_API_TOKEN` env → `AI_OFFLINE_TOKEN` env (refreshed via
-Red Hat SSO into a short-lived access token).
+Red Hat SSO into a short-lived access token). As defense in depth, `request()`
+also fails fast if it is ever handed a falsy token, so a `Bearer None` header can't
+slip through. Token refresh validates the SSO response body (a non-JSON or
+non-object body fails cleanly rather than raising).
 
 ## 3. TLS is verified — keep it that way
 
@@ -58,6 +67,13 @@ Auth headers, base-URL building, query encoding, and TLS live in
 `plugins/module_utils/assisted_installer.py`. Building these by hand in each
 module is how inconsistencies (and security gaps) creep in. Never import
 `requests`.
+
+The `base_url` override (integration-mock only) is validated to prevent credential
+leakage: HTTPS is always allowed; HTTP is allowed only for loopback
+(`127.0.0.1`/`localhost`/`::1`); and an embedded-credentials URL
+(`https://user:pass@host`) is rejected outright so the bearer token can't be sent
+to a userinfo host. The rejection message deliberately omits the URL so an embedded
+password can't leak into logs.
 
 ## 6. Testing safely
 
