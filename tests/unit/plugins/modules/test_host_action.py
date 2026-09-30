@@ -424,6 +424,130 @@ def test_unbind_twice_second_is_noop(monkeypatch):
     assert len(calls) == 4
 
 
+@pytest.mark.parametrize("status", [
+    "preparing-for-installation",
+    "preparing-successful",
+    "installing-in-progress",
+    "installing-pending-user-action",
+    "added-to-existing-cluster",
+])
+def test_install_noop_when_installation_underway(monkeypatch, status):
+    """Install is a no-op (changed=False, no POST) for every in-flight or
+    completed installation status - re-running the play must be safe, not fail."""
+    patch_ansible(monkeypatch)
+    monkeypatch.delenv("AI_API_TOKEN", raising=False)
+    monkeypatch.delenv("AI_OFFLINE_TOKEN", raising=False)
+    calls = []
+    host = dict(HOST_BOUND, status=status)
+    monkeypatch.setattr(
+        ai, "fetch_url",
+        queue_fetch_url([(200, host)], calls=calls),
+    )
+    set_module_args({
+        "action": "install",
+        "infra_env_id": "infra-456",
+        "host_id": "host-123",
+        "api_token": "test-token",
+    })
+
+    with pytest.raises(AnsibleExitJson) as exc:
+        host_action.main()
+
+    assert exc.value.result["changed"] is False
+    assert "already" in exc.value.result["msg"].lower()
+    assert len(calls) == 1  # GET only, no POST
+
+
+@pytest.mark.parametrize("status", [
+    "installing",
+    "installing-in-progress",
+    "preparing-for-installation",
+    "preparing-successful",
+    "installing-pending-user-action",
+])
+def test_unbind_fails_when_installation_in_progress(monkeypatch, status):
+    """Unbind must refuse a host that is installing - the API rejects the POST,
+    so guard on status and fail before firing it."""
+    patch_ansible(monkeypatch)
+    monkeypatch.delenv("AI_API_TOKEN", raising=False)
+    monkeypatch.delenv("AI_OFFLINE_TOKEN", raising=False)
+    calls = []
+    host = dict(HOST_BOUND, status=status)
+    monkeypatch.setattr(
+        ai, "fetch_url",
+        queue_fetch_url([(200, host)], calls=calls),
+    )
+    set_module_args({
+        "action": "unbind",
+        "infra_env_id": "infra-456",
+        "host_id": "host-123",
+        "api_token": "test-token",
+    })
+
+    with pytest.raises(AnsibleFailJson) as exc:
+        host_action.main()
+
+    assert "cannot unbind" in str(exc.value.result["msg"]).lower()
+    assert status in str(exc.value.result["msg"])
+    assert len(calls) == 1  # GET only, no POST
+
+
+@pytest.mark.parametrize("status", ["unbinding", "unbinding-pending-user-action"])
+def test_unbind_noop_when_already_unbinding(monkeypatch, status):
+    """Unbind is a no-op (changed=False) when an unbind is already underway."""
+    patch_ansible(monkeypatch)
+    monkeypatch.delenv("AI_API_TOKEN", raising=False)
+    monkeypatch.delenv("AI_OFFLINE_TOKEN", raising=False)
+    calls = []
+    host = dict(HOST_BOUND, status=status)
+    monkeypatch.setattr(
+        ai, "fetch_url",
+        queue_fetch_url([(200, host)], calls=calls),
+    )
+    set_module_args({
+        "action": "unbind",
+        "infra_env_id": "infra-456",
+        "host_id": "host-123",
+        "api_token": "test-token",
+    })
+
+    with pytest.raises(AnsibleExitJson) as exc:
+        host_action.main()
+
+    assert exc.value.result["changed"] is False
+    assert len(calls) == 1  # GET only, no POST
+
+
+def test_bind_treats_empty_cluster_id_as_unbound(monkeypatch):
+    """A falsy cluster_id ('' or None) means unbound - bind must proceed, not
+    misread an empty string as 'bound to a different cluster'."""
+    patch_ansible(monkeypatch)
+    monkeypatch.delenv("AI_API_TOKEN", raising=False)
+    monkeypatch.delenv("AI_OFFLINE_TOKEN", raising=False)
+    calls = []
+    host = dict(HOST_KNOWN_UNBOUND, cluster_id="")  # empty string, not None
+    monkeypatch.setattr(
+        ai, "fetch_url",
+        queue_fetch_url(
+            [(200, host), (202, {}), (200, HOST_BOUND)],
+            calls=calls,
+        ),
+    )
+    set_module_args({
+        "action": "bind",
+        "infra_env_id": "infra-456",
+        "host_id": "host-123",
+        "cluster_id": "cluster-789",
+        "api_token": "test-token",
+    })
+
+    with pytest.raises(AnsibleExitJson) as exc:
+        host_action.main()
+
+    assert exc.value.result["changed"] is True
+    assert calls[1]["method"] == "POST"
+
+
 # ============================================================================
 # 3. CHECK MODE TESTS - predict changes without acting
 # ============================================================================
