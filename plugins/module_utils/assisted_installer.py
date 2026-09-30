@@ -125,7 +125,7 @@ def _refresh_token(module, offline_token):
     }
     resp, info = fetch_url(
         module, SSO_TOKEN_URL, data=data, headers=headers,
-        method="POST", timeout=DEFAULT_TIMEOUT, validate_certs=True,
+        method="POST", timeout=DEFAULT_TIMEOUT,
     )
     if info.get("status") != 200:
         module.fail_json(msg="Failed to refresh API token (HTTP %s)" % info.get("status"))
@@ -172,8 +172,7 @@ def request(module, method, path, token, body=None, query=None, timeout=None,
 
     resp, info = fetch_url(
         module, url, data=payload, headers=headers, method=method.upper(),
-        timeout=timeout or DEFAULT_TIMEOUT, validate_certs=True,
-        use_proxy=use_proxy,
+        timeout=timeout or DEFAULT_TIMEOUT, use_proxy=use_proxy,
     )
 
     # Parse body from either resp.read() (success) or info["body"] (error).

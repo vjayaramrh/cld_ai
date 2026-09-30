@@ -6,6 +6,366 @@ A chronological journal of issues discovered, resolutions implemented, and lesso
 
 ---
 
+## 2026-09-29: Opus Review - Four Critical Process Gaps
+
+**Context:** Requested Opus review of testing infrastructure before committing. Opus identified four critical process gaps that would have leaked credentials and violated design commitments.
+
+---
+
+### 1. Build Ignore Gap - Credentials in Collection Tarball
+
+**Issue:** Added secrets to `.gitignore` but forgot `build_ignore` in `galaxy.yml` → real credentials bundled into collection tarball.
+
+**What happened:**
+- Created `pull_secret.json`, `offline.token`, `api.token` files
+- Added `*.token` and `pull_secret*` to `.gitignore` (protects git)
+- Ran `ansible-galaxy collection build --force` per documentation
+- **Tarball contained all three secret files** (Opus verified by inspecting tarball)
+- Documentation told contributors to run `collection build` → every contributor would package their own credentials
+
+**Root cause:**
+- Only checked **git protection** (`.gitignore`)
+- Forgot **build protection** (`galaxy.yml` `build_ignore`)
+- Ansible Galaxy uses **separate ignore mechanism** for tarballs
+
+**How we discovered it:**
+- Opus review explicitly checked tarball contents: `tar tzf openshift_lab-assisted_installer-*.tar.gz | grep -iE 'token|secret'`
+- Found `offline.token`, `api.token`, `pull_secret.json` all present
+- `.gitignore` worked (files not in git), but `build_ignore` was incomplete
+
+**Impact:**
+- **CRITICAL:** If tarball uploaded to Galaxy or attached to issue, credentials leak
+- Every developer following the documented workflow would bundle their secrets
+- Multiple copies of real credentials would exist in shareable artifacts
+
+**Resolution implemented:**
+
+1. **Updated `galaxy.yml` `build_ignore`:**
+   - Added: `*.token`, `pull_secret*`, `.env`
+   - Comment: "Secrets - never bundle credentials into collection tarball"
+
+2. **Deleted existing tarball:**
+   - Removed `openshift_lab-assisted_installer-*.tar.gz` (contained real secrets)
+
+3. **Updated comment in `galaxy.yml`:**
+   - `scripts` comment now mentions "Includes manual-smoke (live API tests requiring real credentials)"
+
+**What to do differently:**
+
+**When protecting secrets in Ansible collections, check TWO ignore mechanisms:**
+1. `.gitignore` - protects git commits
+2. `galaxy.yml` `build_ignore` - protects collection tarballs
+
+**Verification pattern:**
+```bash
+# After adding secrets to ignore files:
+ansible-galaxy collection build
+tar tzf *.tar.gz | grep -iE 'token|secret|\.env'
+# Should return NOTHING
+
+# Then delete the tarball:
+rm *.tar.gz
+```
+
+**Files changed:**
+- `galaxy.yml` - Added `*.token`, `pull_secret*`, `.env` to `build_ignore`
+
+**References:**
+- Opus review finding #1 (CRITICAL severity)
+- Galaxy packaging docs: https://docs.ansible.com/ansible/latest/dev_guide/collections_galaxy_meta.html#build-ignore
+
+---
+
+### 2. Design Document Verification Gap - Wrong Testing Approach
+
+**Issue:** Built entire live API testing infrastructure without re-reading DESIGN.md §8, which explicitly requires **mock server integration**, not live API tests with real credentials.
+
+**What happened:**
+- DESIGN.md §8 states: "Integration NEVER targets `api.openshift.com`. No credentials, no network egress."
+- DESIGN.md §8 says: "together with the first state-based module (`cluster`/`infra_env`)" is the trigger
+- `infra_env` module landed (trigger fired)
+- Built comprehensive test suite in `tests/playbooks/` that:
+  - Creates/deletes **real** resources on `api.openshift.com`
+  - Requires **real** credentials (`pull_secret.json`, `offline.token`)
+  - Cannot run in CI (violates "no credentials in CI" rule)
+- Module already has `base_url` parameter and `_validate_base_url()` for mock server support
+- **Never used the mock server pattern we designed for**
+
+**Root cause:**
+- Started implementation without re-reading design section that covers it
+- Focused on "testing against live API" without checking if that's what was designed
+- Design documents contain **commitments** ("integration NEVER targets prod"), not suggestions
+
+**How we discovered it:**
+- Opus review explicitly cross-referenced DESIGN.md §8
+- Quoted the design commitments back to us
+- Pointed out the contradiction: design says "mock server", we built "live API"
+
+**Impact:**
+- Tests violate project's documented testing posture
+- Tests live in `tests/` but can never run in CI
+- Missing the actual deliverable (mock server integration)
+- Future contributors will wire live API tests into CI (disaster)
+
+**Resolution implemented:**
+
+1. **Moved live API tests to `scripts/manual-smoke/`:**
+   - Created `scripts/manual-smoke/` directory (build-ignored)
+   - Moved: `list-infra-envs.yml`, `test-infra-env-lifecycle.yml`, `test-infra-env-query.yml`, `query-infra-env-by-id.yml`, `debug-create-infra-env.yml`
+   - These are now **manual smoke tests**, not the test suite
+
+2. **Created `scripts/manual-smoke/README.md`:**
+   - Clearly labels these as "manual smoke tests (live API)"
+   - Warning: "should never be automated in CI"
+   - Explains difference from DESIGN §8 integration tests
+
+3. **Updated `galaxy.yml`:**
+   - `scripts` directory build-ignored (includes manual-smoke)
+   - Comment clarifies why
+
+4. **Documented what's still needed:**
+   - `tests/integration/targets/infra_env/` against local mock server
+   - CI integration job (the DESIGN §8 deliverable)
+
+**What to do differently:**
+
+**Before significant implementation work:**
+1. **Re-read the design document** section that covers it
+2. **Quote the relevant design commitments** in your planning
+3. **Verify approach matches design** before writing code
+4. **Check for design keywords:** "MUST", "NEVER", "always", "forbidden"
+
+**Design documents aren't suggestions:**
+- "Integration NEVER targets prod" means **never**, not "usually not"
+- Violations need explicit design change discussion, not silent implementation
+
+**Pattern:**
+```markdown
+## Before implementing [feature]
+
+**Design reference:** DESIGN.md §N says:
+> [quote the relevant section]
+
+**My approach:** [describe]
+
+**Verification:** Does my approach match the design? YES/NO
+- If NO: why is the design wrong? Propose design change first.
+```
+
+**Files changed:**
+- Moved 5 playbooks from `tests/playbooks/` to `scripts/manual-smoke/`
+- `scripts/manual-smoke/README.md` - Created with warnings
+- `galaxy.yml` - Updated comment for `scripts` ignore
+
+**What's still needed:**
+- Build `tests/integration/targets/infra_env/` (DESIGN §8 deliverable)
+- Local mock HTTP server setup
+- CI integration job
+
+**References:**
+- Opus review finding #2 (CRITICAL severity)
+- DESIGN.md §8 "When to build the integration layer"
+
+---
+
+### 3. Bug Fix Verification Gap - Right Fix, Wrong Explanation (Twice)
+
+**Issue:** Removed `validate_certs=True` from two `fetch_url()` calls as a "bug
+fix" without verifying *why* it worked. Two successive reviews then documented the
+root cause wrongly before CodeRabbit checked the actual source and settled it.
+
+**What happened (three stages of getting it wrong, then right):**
+
+1. **Original change (unverified fix):** Encountered
+   `fetch_url() got an unexpected keyword argument 'validate_certs'`, removed the
+   parameter, and shipped it as a "bug fix" — without documenting the error,
+   reproducing it, or explaining the mechanism.
+
+2. **Opus review (over-corrected):** Concluded `validate_certs` "**is** a valid
+   parameter (default `True`)" and that removal was a **no-op**. We documented
+   that in `VALIDATE_CERTS_NOTE.md` and here, calling the root cause "unknown."
+   This was *also* unverified — it reasoned from the general Ansible convention
+   (modules expose `validate_certs`) without checking the `fetch_url()` signature.
+
+3. **CodeRabbit review (verified against source):** Checked the ansible-core
+   `stable-2.17`, `stable-2.18`, and `stable-2.19` sources and found:
+   `fetch_url()` **does not accept `validate_certs` as a keyword argument.** It
+   reads it from `module.params` (default `True`) and passes it to `open_url()`.
+
+**Actual root cause (settled):**
+- `validate_certs` is a valid *module parameter*, but NOT a `fetch_url()` keyword.
+- Passing it as a keyword raised the `TypeError`.
+- Removing it **resolved the error** AND **retained default TLS validation**
+  (`True`), because that is the default `fetch_url()` applies when it is absent.
+- So the original change was a **real fix** — we just never explained it, then
+  mis-explained it as a no-op.
+
+**The deeper lesson — verification gaps compound:**
+- The original author didn't verify the fix mechanism.
+- The Opus review "correcting" it *also* didn't verify — it substituted a
+  plausible-sounding convention ("modules take `validate_certs`") for checking
+  the specific function's signature in the specific versions.
+- Only checking the **authoritative source for the exact API and versions**
+  settled it. A confident second opinion is not verification.
+
+**Resolution implemented:**
+1. **Kept the change** — it is the correct fix.
+2. **Rewrote `VALIDATE_CERTS_NOTE.md`** to state the real root cause, cite the
+   `fetch_url()` signature, and explain TLS validation still defaults to `True`.
+3. **Classification:** this IS a bug fix (resolves a `TypeError`), not a no-op
+   and not mere cleanup.
+
+**What to do differently:**
+
+Before claiming to fix — OR to *un*-fix — a bug:
+1. **Document the exact error** (message, version, environment).
+2. **Check the authoritative source for the exact API and version**, not the
+   general convention. Signatures differ between "module argument_spec" and the
+   helper functions modules call (`fetch_url` vs `open_url` vs a module param).
+3. **Reproduce** the failure and confirm the change flips it.
+4. Treat a reviewer's confident claim as a hypothesis to verify, not a fact.
+
+**Pattern for actual bug fixes:**
+```markdown
+## Bug: [Short description]
+
+**Original error:** [exact message + stack trace + version]
+**Root cause:** [checked against source: file/version/line]
+**Fix:** [what changed]
+**Verification:** reproduced before ✓ / gone after ✓ / no recurrence ✓
+```
+
+**Files changed:**
+- `VALIDATE_CERTS_NOTE.md` - Rewritten with the verified root cause
+- `plugins/module_utils/assisted_installer.py` - Change kept (it is the fix)
+
+**References:**
+- Opus review finding #3 (initial, partially wrong conclusion)
+- CodeRabbit PR #52 (verified `fetch_url()` signature across 2.17–2.19)
+
+---
+
+### 4. Test Cleanup Pattern Missing - Resource Leak on Failure
+
+**Issue:** Live API tests create resources without guaranteed cleanup. If assertions fail mid-run, resources leak.
+
+**What happened:**
+- `test-infra-env-lifecycle.yml` creates test infra-env
+- Runs assertions
+- Deletes infra-env at end
+- **If any assertion fails:** playbook stops, delete never runs
+- Result: orphaned infra-env accumulates on live account on every failure
+
+**Root cause:**
+- Linear task flow (create → assert → delete)
+- No failure handling
+- Cleanup depends on reaching the delete step
+- Didn't use Ansible's `block/rescue/always` pattern
+
+**How we discovered it:**
+- Opus review asked: "What happens if STEP 3 assertion fails?"
+- Answer: STEP 4 (delete) never runs
+- No `block/always` pattern for guaranteed cleanup
+
+**Impact:**
+- Failed test runs leak real infrastructure
+- Costs accumulate (infra-envs are free but generate ISOs, consume quota)
+- Manual cleanup required after every failure
+- Same issue in `test-infra-env-query.yml` (creates 2, may leak both)
+
+**Resolution implemented:**
+
+1. **Rewrote `test-infra-env-lifecycle.yml` with `block/rescue/always`:**
+   ```yaml
+   - block:
+       # All test steps including delete
+     rescue:
+       - debug: msg="Test failed, attempting cleanup..."
+       - name: Guaranteed cleanup on failure
+         infra_env:
+           state: absent
+           name: "{{ test_name }}"
+         ignore_errors: true
+       # Re-fail so successful cleanup does not mask the original failure.
+       # A rescue that completes clears the error and the play reports success.
+       - name: Re-fail the test after cleanup
+         ansible.builtin.fail:
+           msg: "Test failed; cleanup was attempted."
+     always:
+       - debug: msg="Cleanup attempted via block/always (cleanup errors ignored)"
+   ```
+
+2. **Added real update step (bonus fix):**
+   - Opus also noted: lifecycle test claims to test "update" but only tests no-op
+   - Added STEP 4: Update (change `image_type` from `full-iso` to `minimal-iso`)
+   - Verifies `changed=true` for real drift reconciliation
+
+3. **Updated test steps:**
+   - Now 7 steps instead of 6
+   - Create → Verify → Create idempotency → **Update** → Delete → Verify deletion → Delete idempotency
+
+**What to do differently:**
+
+**Tests that mutate external state MUST use `block/rescue/always` for guaranteed cleanup:**
+
+```yaml
+- block:
+    - name: Create resource
+      module:
+        state: present
+      register: created
+
+    - name: Run assertions
+      assert:
+        that: [conditions]
+
+    - name: Normal cleanup
+      module:
+        state: absent
+      register: deleted
+
+  rescue:
+    - name: Log failure
+      debug:
+        msg: "Test failed, attempting cleanup"
+
+    - name: Guaranteed cleanup on failure
+      module:
+        state: absent
+      ignore_errors: true
+
+    # A completed rescue clears the original error, so the play would report
+    # success. Re-fail to keep a failed test failed after cleanup runs.
+    - name: Re-fail the test after cleanup
+      ansible.builtin.fail:
+        msg: "Test failed; cleanup was attempted."
+
+  always:
+    - name: Report cleanup status
+      debug:
+        msg: "Cleanup attempted via always block (cleanup errors ignored)"
+```
+
+**Pattern applies to:**
+- Live API tests
+- Database tests
+- VM provisioning tests
+- Any test that creates external resources
+
+**Don't rely on:**
+- Linear task flow reaching cleanup steps
+- Playbook completing successfully
+- Manual cleanup after failures
+
+**Files changed:**
+- `scripts/manual-smoke/test-infra-env-lifecycle.yml` - Rewritten with block/rescue/always + update step
+
+**References:**
+- Opus review finding #4 (HIGH severity)
+- Ansible docs: https://docs.ansible.com/ansible/latest/user_guide/playbooks_blocks.html
+
+---
+
 ## 2026-09-22: Cost Tracking Scope Clarification - Not Just Module PRs
 
 **Issue:** Cost tracking scope was assumed to be module implementation PRs only, but user expects it for ALL PRs where Claude is used.

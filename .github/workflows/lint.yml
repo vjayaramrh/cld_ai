@@ -11,27 +11,36 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  NAMESPACE: openshift_lab
+  COLLECTION_NAME: assisted_installer
+
 jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout into collection path
         uses: actions/checkout@v4
+        with:
+          path: ansible_collections/${{ env.NAMESPACE }}/${{ env.COLLECTION_NAME }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: Install linters
+      - name: Install ansible-core and linters
         run: >-
           pip install --disable-pip-version-check
+          "https://github.com/ansible/ansible/archive/stable-2.19.tar.gz"
           "yamllint==1.37.1"
           "ansible-lint==25.6.1"
 
       - name: yamllint
         run: yamllint .
+        working-directory: ./ansible_collections/${{ env.NAMESPACE }}/${{ env.COLLECTION_NAME }}
 
       - name: ansible-lint
         run: ansible-lint
+        working-directory: ./ansible_collections/${{ env.NAMESPACE }}/${{ env.COLLECTION_NAME }}

@@ -1,0 +1,63 @@
+---
+# Read-only test: List existing infrastructure environments
+# Safe to run against live API (no mutations)
+
+- name: List Infrastructure Environments
+  hosts: localhost
+  gather_facts: false
+  connection: local
+
+  vars:
+    api_token: "{{ lookup('env', 'AI_API_TOKEN') }}"
+    api_base_url: "https://api.openshift.com/api/assisted-install/v2"
+
+  tasks:
+    - name: Verify API token is provided
+      fail:
+        msg: "AI_API_TOKEN environment variable is required"
+      when: api_token == ""
+
+    - name: List all infra-envs via API
+      uri:
+        url: "{{ api_base_url }}/infra-envs"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ api_token }}"
+        return_content: true
+        status_code: 200
+      register: infra_envs_raw
+
+    - name: Display infra-env summary
+      debug:
+        msg: |
+          ========================================
+          Infrastructure Environments Found: {{ infra_envs_raw.json | length }}
+          ========================================
+
+    - name: Show each infra-env
+      debug:
+        msg: |
+          Name: {{ item.name }}
+          ID: {{ item.id }}
+          Cluster ID: {{ item.cluster_id | default('(not bound to cluster)') }}
+          CPU Arch: {{ item.cpu_architecture }}
+          OpenShift Version: {{ item.openshift_version | default('(not specified)') }}
+          Created At: {{ item.created_at }}
+      loop: "{{ infra_envs_raw.json }}"
+      when: infra_envs_raw.json | length > 0
+
+    - name: No infra-envs found message
+      debug:
+        msg: "No infrastructure environments found in your account."
+      when: infra_envs_raw.json | length == 0
+
+    - name: Summary
+      debug:
+        msg: |
+          ========================================
+          ✓ Read-Only Test Complete
+          ========================================
+          Total infra-envs: {{ infra_envs_raw.json | length }}
+
+          This was a safe read-only query.
+          No resources were created, modified, or deleted.
