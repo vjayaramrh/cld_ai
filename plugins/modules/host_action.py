@@ -71,14 +71,23 @@ requirements:
   - ansible-core >= 2.17
 notes:
   - Authentication requires either O(api_token) or O(offline_token).
-  - Actions are guarded by host status. For example, V(bind) requires the host
-    to be in a discovered state, V(install) requires the host to be bound and
-    ready, and V(reset) is typically used on failed or installed hosts.
+  - Actions are guarded by host status. V(bind) requires the host to be
+    discovered and unbound (C(discovering), C(known), C(disconnected),
+    C(insufficient), C(pending-for-input)); V(install) requires the host to be
+    bound and C(known); V(reset) applies to C(error), C(installed), or
+    C(cancelled) hosts.
   - Each action is idempotent - if the host is already in the target state for
-    that action, C(changed=false) is returned and no API call is made.
+    that action, C(changed=false) is returned and no API call is made. This
+    includes the in-flight installation states - re-running V(install) while the
+    host is C(preparing-for-installation), C(installing), or already
+    C(installed) is a no-op, not a failure.
+  - V(unbind) refuses a host that is mid-installation
+    (C(preparing-for-installation), C(installing), etc.) because the API rejects
+    it; wait for installation to finish or V(reset) the host first.
 """
 
 EXAMPLES = r"""
+# bind: guarded on an unbound, discovered host (e.g. status "known" with no cluster_id)
 - name: Bind a discovered host to a cluster
   openshift_lab.assisted_installer.host_action:
     action: bind
@@ -87,6 +96,7 @@ EXAMPLES = r"""
     cluster_id: "{{ target_cluster_id }}"
     api_token: "{{ assisted_installer_token }}"
 
+# unbind: guarded on a bound host that is NOT mid-installation
 - name: Unbind a host from its cluster
   openshift_lab.assisted_installer.host_action:
     action: unbind
@@ -94,6 +104,7 @@ EXAMPLES = r"""
     host_id: "{{ host_id }}"
     api_token: "{{ assisted_installer_token }}"
 
+# install: guarded on a bound host in status "known" (no-op if already installing/installed)
 - name: Install a bound and ready host
   openshift_lab.assisted_installer.host_action:
     action: install
@@ -101,6 +112,7 @@ EXAMPLES = r"""
     host_id: "{{ host_id }}"
     api_token: "{{ assisted_installer_token }}"
 
+# reset: guarded on a host in "error", "installed", or "cancelled"
 - name: Reset a failed host back to discovery
   openshift_lab.assisted_installer.host_action:
     action: reset
@@ -170,6 +182,28 @@ from ansible_collections.openshift_lab.assisted_installer.plugins.module_utils i
     assisted_installer as ai,
 )
 
+# Host status groups, taken from the Assisted Installer OpenAPI host.status enum.
+# Installation is in flight for these: a re-run of "install" must treat them as
+# "already underway" (idempotent no-op, not a failure), and "unbind" must refuse
+# them because the API rejects unbinding a host mid-installation.
+INSTALLING_STATUSES = frozenset([
+    "preparing-for-installation",
+    "preparing-successful",
+    "installing",
+    "installing-in-progress",
+    "installing-pending-user-action",
+])
+# Installation has completed for these: "install" is likewise a no-op.
+INSTALLED_STATUSES = frozenset([
+    "installed",
+    "added-to-existing-cluster",
+])
+# An unbind is already underway for these: "unbind" is a no-op.
+UNBINDING_STATUSES = frozenset([
+    "unbinding",
+    "unbinding-pending-user-action",
+])
+
 
 def needs_action(module, host, action, params):
     """
@@ -184,8 +218,9 @@ def needs_action(module, host, action, params):
         # Can bind if host is discovered/known and not already bound to the target cluster
         if cluster_id == params["cluster_id"]:
             return False, f"Host already bound to cluster {cluster_id}"
-        # Cannot rebind to a different cluster without unbinding first
-        if cluster_id is not None:
+        # Cannot rebind to a different cluster without unbinding first.
+        # Use truthiness so an empty cluster_id ("" or None) both read as unbound.
+        if cluster_id:
             module.fail_json(
                 msg=f"Host is bound to cluster {cluster_id}. Unbind it first before binding to {params['cluster_id']}",
                 host=host,
@@ -200,21 +235,32 @@ def needs_action(module, host, action, params):
         return True, f"Host status '{status}' allows binding"
 
     elif action == "unbind":
-        # Can unbind if host is currently bound to a cluster
+        # Already unbound -> nothing to do.
         if not cluster_id:
             return False, "Host is not bound to any cluster"
+        # An unbind is already in progress -> idempotent no-op.
+        if status in UNBINDING_STATUSES:
+            return False, f"Host is already unbinding (status '{status}')"
+        # The API rejects unbinding a host mid-installation; guard before POSTing.
+        if status in INSTALLING_STATUSES:
+            module.fail_json(
+                msg=f"Cannot unbind host in status '{status}' (installation in "
+                    f"progress). Wait for it to finish or reset the host first.",
+                host=host,
+            )
         return True, f"Host is bound to cluster {cluster_id}"
 
     elif action == "install":
-        # Can install if host is known and bound, not already installing/installed
-        if status in ["installing", "installing-in-progress", "installed"]:
+        # Already installing (incl. the preparing phases) or installed -> no-op,
+        # so re-running the play is safe rather than failing mid-installation.
+        if status in INSTALLING_STATUSES or status in INSTALLED_STATUSES:
             return False, f"Host is already {status}"
         if not cluster_id:
             module.fail_json(
                 msg="Cannot install host that is not bound to a cluster",
                 host=host,
             )
-        if status not in ["known"]:
+        if status != "known":
             module.fail_json(
                 msg=f"Cannot install host in status '{status}'. Expected 'known'",
                 host=host,
