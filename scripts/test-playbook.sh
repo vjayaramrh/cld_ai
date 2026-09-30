@@ -31,7 +31,7 @@ echo ""
 # Step 1: Build the collection
 echo "Step 1: Building collection..."
 ansible-galaxy collection build --force
-TARBALL=$(ls -t openshift_lab-assisted_installer-*.tar.gz | head -1)
+TARBALL=$(find . -maxdepth 1 -name "openshift_lab-assisted_installer-*.tar.gz" -type f -printf '%T@ %p\n' | sort -rn | head -1 | cut -d' ' -f2-)
 echo "✓ Built: ${TARBALL}"
 echo ""
 
@@ -47,7 +47,7 @@ INSTALLED_PATH="${HOME}/.ansible/collections/ansible_collections/openshift_lab/a
 if [ -d "${INSTALLED_PATH}" ]; then
     echo "✓ Collection installed at: ${INSTALLED_PATH}"
     echo "  Modules found:"
-    ls -1 "${INSTALLED_PATH}/plugins/modules/"*.py | xargs -n1 basename | sed 's/\.py$//' | sed 's/^/    - /'
+    find "${INSTALLED_PATH}/plugins/modules/" -maxdepth 1 -name "*.py" -type f -exec basename {} \; | sed 's/\.py$//' | sed 's/^/    - /'
 else
     echo "ERROR: Collection not found at expected path"
     exit 1
