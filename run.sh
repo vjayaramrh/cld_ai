@@ -61,12 +61,16 @@ if [ -z "${AI_API_TOKEN:-}" ]; then
     if [ -f "${REPO_DIR}/offline.token" ]; then
         OFFLINE_TOKEN=$(grep -v '^#' "${REPO_DIR}/offline.token" | grep -v '^[[:space:]]*$' | head -1 | tr -d '[:space:]')
         if [ -n "${OFFLINE_TOKEN}" ] && command -v curl >/dev/null 2>&1; then
-            AI_API_TOKEN=$(curl -s -X POST \
+            # Guard the pipeline: under `set -euo pipefail` a failed exchange would
+            # otherwise abort the script before the api.token fallback can run.
+            if ! AI_API_TOKEN=$(curl -s -X POST \
                 "https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token" \
                 -d "grant_type=refresh_token" \
                 -d "client_id=cloud-services" \
                 -d "refresh_token=${OFFLINE_TOKEN}" \
-                | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
+                | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4); then
+                AI_API_TOKEN=""
+            fi
             if [ -n "${AI_API_TOKEN}" ]; then
                 echo ">> exchanged offline token for fresh API token"
             fi

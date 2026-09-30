@@ -2,6 +2,12 @@
 
 Complete guide to testing the `infra_env` module against the live API.
 
+> **⚠️ Manual-only, live API.** These playbooks live in `scripts/manual-smoke/`
+> and hit the production API (`api.openshift.com`) with real credentials. They
+> are **not** part of CI and must never be automated there (see
+> `scripts/manual-smoke/README.md`). Tests 2 and 3 **create and delete real
+> infra-envs** — run them only in a lab/test account.
+
 ---
 
 ## Prerequisites
@@ -22,14 +28,14 @@ Required for state modules (create/modify operations).
 
 ### **Test 1: List All Infra-Envs** (Read-Only, Safe)
 
-**File:** `list-infra-envs.yml`
+**File:** `scripts/manual-smoke/list-infra-envs.yml`
 
 Shows all infrastructure environments in your account.
 
 ```bash
 ./run.sh shell
 # Inside container:
-ansible-playbook tests/playbooks/list-infra-envs.yml
+ansible-playbook scripts/manual-smoke/list-infra-envs.yml
 ```
 
 **Output:**
@@ -40,9 +46,9 @@ ansible-playbook tests/playbooks/list-infra-envs.yml
 
 ---
 
-### **Test 2: Query by Name**
+### **Test 2: Query by Name** (Manual-only — creates/deletes real resources)
 
-**File:** `test-infra-env-query.yml`
+**File:** `scripts/manual-smoke/test-infra-env-query.yml`
 
 Tests the module's lookup functionality.
 
@@ -51,7 +57,7 @@ Tests the module's lookup functionality.
 # Inside container:
 ansible-galaxy collection build --force
 ansible-galaxy collection install openshift_lab-assisted_installer-*.tar.gz --force
-ansible-playbook tests/playbooks/test-infra-env-query.yml
+ansible-playbook scripts/manual-smoke/test-infra-env-query.yml
 ```
 
 **What it tests:**
@@ -66,9 +72,9 @@ ansible-playbook tests/playbooks/test-infra-env-query.yml
 
 ---
 
-### **Test 3: Full Lifecycle**
+### **Test 3: Full Lifecycle** (Manual-only — creates/deletes real resources)
 
-**File:** `test-infra-env-lifecycle.yml`
+**File:** `scripts/manual-smoke/test-infra-env-lifecycle.yml`
 
 Comprehensive create → update → delete test.
 
@@ -77,7 +83,7 @@ Comprehensive create → update → delete test.
 # Inside container:
 ansible-galaxy collection build --force
 ansible-galaxy collection install openshift_lab-assisted_installer-*.tar.gz --force
-ansible-playbook tests/playbooks/test-infra-env-lifecycle.yml
+ansible-playbook scripts/manual-smoke/test-infra-env-lifecycle.yml
 ```
 
 **What it tests:**
@@ -95,19 +101,19 @@ ansible-playbook tests/playbooks/test-infra-env-lifecycle.yml
 
 ### **Test 4: Query by ID** (Raw API)
 
-**File:** `query-infra-env-by-id.yml`
+**File:** `scripts/manual-smoke/query-infra-env-by-id.yml`
 
 Direct API query by UUID (not using the state module).
 
 ```bash
 # Step 1: Get an ID
 ./run.sh shell
-ansible-playbook tests/playbooks/list-infra-envs.yml
+ansible-playbook scripts/manual-smoke/list-infra-envs.yml
 # Copy an ID from the output
 
 # Step 2: Query that ID
 INFRA_ENV_ID="8437d6bf-4ee4-4eba-ad1f-69fcbc927f70" \
-  ansible-playbook tests/playbooks/query-infra-env-by-id.yml
+  ansible-playbook scripts/manual-smoke/query-infra-env-by-id.yml
 ```
 
 **What it shows:**
@@ -132,19 +138,19 @@ ansible-galaxy collection install openshift_lab-assisted_installer-*.tar.gz --fo
 
 # Test 1: List (baseline)
 echo "=== Test 1: List All ==="
-ansible-playbook tests/playbooks/list-infra-envs.yml
+ansible-playbook scripts/manual-smoke/list-infra-envs.yml
 
 # Test 2: Query by name
 echo "=== Test 2: Query by Name ==="
-ansible-playbook tests/playbooks/test-infra-env-query.yml
+ansible-playbook scripts/manual-smoke/test-infra-env-query.yml
 
 # Test 3: Full lifecycle
 echo "=== Test 3: Full Lifecycle ==="
-ansible-playbook tests/playbooks/test-infra-env-lifecycle.yml
+ansible-playbook scripts/manual-smoke/test-infra-env-lifecycle.yml
 
 # Test 4: List again (verify cleanup)
 echo "=== Test 4: Verify Cleanup ==="
-ansible-playbook tests/playbooks/list-infra-envs.yml
+ansible-playbook scripts/manual-smoke/list-infra-envs.yml
 
 exit
 ```

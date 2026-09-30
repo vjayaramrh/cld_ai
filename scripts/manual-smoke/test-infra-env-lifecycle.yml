@@ -11,7 +11,10 @@
   vars:
     api_token: "{{ lookup('env', 'AI_API_TOKEN') }}"
     test_name: "ansible-test-infra-env"
-    test_pull_secret: "{{ lookup('file', '../../pull_secret.json', errors='ignore') | trim | default(lookup('env', 'PULL_SECRET')) }}"
+    # `errors='ignore'` returns None when the file is missing; `trim` would turn
+    # None into the string "None", so normalize to '' first and use default(..., true)
+    # so an empty/whitespace-only file also falls back to the PULL_SECRET env var.
+    test_pull_secret: "{{ (lookup('file', '../../pull_secret.json', errors='ignore') or '') | trim | default(lookup('env', 'PULL_SECRET'), true) }}"
 
   tasks:
     # === Sanity Checks ===
@@ -261,4 +264,6 @@
       always:
         - name: Final cleanup verification
           debug:
-            msg: "Test block completed. Cleanup was guaranteed via block/always pattern."
+            msg: >-
+              Test block completed. Failure cleanup, when needed, was attempted;
+              cleanup errors were ignored.

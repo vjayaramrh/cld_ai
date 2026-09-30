@@ -10,7 +10,10 @@
   vars:
     api_token: "{{ lookup('env', 'AI_API_TOKEN') }}"
     test_name: "ansible-query-test"
-    test_pull_secret: "{{ lookup('file', '../../pull_secret.json', errors='ignore') | trim | default(lookup('env', 'PULL_SECRET')) }}"
+    # `errors='ignore'` returns None when the file is missing; `trim` would turn
+    # None into the string "None", so normalize to '' first and use default(..., true)
+    # so an empty/whitespace-only file also falls back to the PULL_SECRET env var.
+    test_pull_secret: "{{ (lookup('file', '../../pull_secret.json', errors='ignore') or '') | trim | default(lookup('env', 'PULL_SECRET'), true) }}"
 
   tasks:
     - name: Display test info
@@ -21,126 +24,161 @@
           ========================================
           Will create, query, and delete: {{ test_name }}
 
-    # Create test infra-env
-    - name: Create test infra-env
-      openshift_lab.assisted_installer.infra_env:
-        state: present
-        name: "{{ test_name }}"
-        pull_secret: "{{ test_pull_secret }}"
-        openshift_version: "4.16"
-        cpu_architecture: "x86_64"
-        image_type: "minimal-iso"
-        api_token: "{{ api_token }}"
-      register: created
+    # === Main Test Block with Guaranteed Cleanup ===
+    # This playbook creates TWO infra-envs ({{ test_name }} and
+    # {{ test_name }}-different); both must be cleaned up even on failure.
+    - block:
+        # Create test infra-env
+        - name: Create test infra-env
+          openshift_lab.assisted_installer.infra_env:
+            state: present
+            name: "{{ test_name }}"
+            pull_secret: "{{ test_pull_secret }}"
+            openshift_version: "4.16"
+            cpu_architecture: "x86_64"
+            image_type: "minimal-iso"
+            api_token: "{{ api_token }}"
+          register: created
 
-    - name: Show created infra-env
-      debug:
-        msg: |
-          Created:
-            Name: {{ created.infra_env.name }}
-            ID: {{ created.infra_env.id }}
-            Type: {{ created.infra_env.type }}
-            Changed: {{ created.changed }}
+        - name: Show created infra-env
+          debug:
+            msg: |
+              Created:
+                Name: {{ created.infra_env.name }}
+                ID: {{ created.infra_env.id }}
+                Type: {{ created.infra_env.type }}
+                Changed: {{ created.changed }}
 
-    # Query it back (simulates re-running the same task)
-    - name: Query the same infra-env (should find it)
-      openshift_lab.assisted_installer.infra_env:
-        state: present
-        name: "{{ test_name }}"
-        pull_secret: "{{ test_pull_secret }}"
-        openshift_version: "4.16"
-        cpu_architecture: "x86_64"
-        image_type: "minimal-iso"
-        api_token: "{{ api_token }}"
-      register: queried
+        # Query it back (simulates re-running the same task)
+        - name: Query the same infra-env (should find it)
+          openshift_lab.assisted_installer.infra_env:
+            state: present
+            name: "{{ test_name }}"
+            pull_secret: "{{ test_pull_secret }}"
+            openshift_version: "4.16"
+            cpu_architecture: "x86_64"
+            image_type: "minimal-iso"
+            api_token: "{{ api_token }}"
+          register: queried
 
-    - name: Verify query found the same infra-env
-      assert:
-        that:
-          - queried.changed == false
-          - queried.infra_env.id == created.infra_env.id
-          - queried.infra_env.name == test_name
-          - queried.infra_env.type == 'minimal-iso'
-        success_msg: "✓ Query found the correct infra-env (no-op, same ID)"
+        - name: Verify query found the same infra-env
+          assert:
+            that:
+              - queried.changed == false
+              - queried.infra_env.id == created.infra_env.id
+              - queried.infra_env.name == test_name
+              - queried.infra_env.type == 'minimal-iso'
+            success_msg: "✓ Query found the correct infra-env (no-op, same ID)"
 
-    - name: Show queried infra-env details
-      debug:
-        msg: |
-          Queried infra-env:
-            Name: {{ queried.infra_env.name }}
-            ID: {{ queried.infra_env.id }}
-            Type: {{ queried.infra_env.type }}
-            OpenShift Version: {{ queried.infra_env.openshift_version }}
-            CPU Arch: {{ queried.infra_env.cpu_architecture }}
-            Created At: {{ queried.infra_env.created_at }}
-            Download URL: {{ queried.infra_env.download_url }}
-            Changed: {{ queried.changed }}
+        - name: Show queried infra-env details
+          debug:
+            msg: |
+              Queried infra-env:
+                Name: {{ queried.infra_env.name }}
+                ID: {{ queried.infra_env.id }}
+                Type: {{ queried.infra_env.type }}
+                OpenShift Version: {{ queried.infra_env.openshift_version }}
+                CPU Arch: {{ queried.infra_env.cpu_architecture }}
+                Created At: {{ queried.infra_env.created_at }}
+                Download URL: {{ queried.infra_env.download_url }}
+                Changed: {{ queried.changed }}
 
-    # Query non-existent infra-env (should create it)
-    - name: Query different name (should NOT find it, will create new)
-      openshift_lab.assisted_installer.infra_env:
-        state: present
-        name: "{{ test_name }}-different"
-        pull_secret: "{{ test_pull_secret }}"
-        openshift_version: "4.16"
-        cpu_architecture: "x86_64"
-        api_token: "{{ api_token }}"
-      register: different
+        # Query non-existent infra-env (should create it)
+        - name: Query different name (should NOT find it, will create new)
+          openshift_lab.assisted_installer.infra_env:
+            state: present
+            name: "{{ test_name }}-different"
+            pull_secret: "{{ test_pull_secret }}"
+            openshift_version: "4.16"
+            cpu_architecture: "x86_64"
+            api_token: "{{ api_token }}"
+          register: different
 
-    - name: Verify different name creates new infra-env
-      assert:
-        that:
-          - different.changed == true
-          - different.infra_env.name == test_name + '-different'
-          - different.infra_env.id != created.infra_env.id
-        success_msg: "✓ Different name created new infra-env (different ID)"
+        - name: Verify different name creates new infra-env
+          assert:
+            that:
+              - different.changed == true
+              - different.infra_env.name == test_name + '-different'
+              - different.infra_env.id != created.infra_env.id
+            success_msg: "✓ Different name created new infra-env (different ID)"
 
-    - name: Show both infra-envs side by side
-      debug:
-        msg: |
-          Original: {{ created.infra_env.name }} → ID: {{ created.infra_env.id[:8] }}...
-          New:      {{ different.infra_env.name }} → ID: {{ different.infra_env.id[:8] }}...
+        - name: Show both infra-envs side by side
+          debug:
+            msg: |
+              Original: {{ created.infra_env.name }} → ID: {{ created.infra_env.id[:8] }}...
+              New:      {{ different.infra_env.name }} → ID: {{ different.infra_env.id[:8] }}...
 
-    # Cleanup
-    - name: Delete first test infra-env
-      openshift_lab.assisted_installer.infra_env:
-        state: absent
-        name: "{{ test_name }}"
-        api_token: "{{ api_token }}"
-      register: cleanup1
+        # Cleanup
+        - name: Delete first test infra-env
+          openshift_lab.assisted_installer.infra_env:
+            state: absent
+            name: "{{ test_name }}"
+            api_token: "{{ api_token }}"
+          register: cleanup1
 
-    - name: Delete second test infra-env
-      openshift_lab.assisted_installer.infra_env:
-        state: absent
-        name: "{{ test_name }}-different"
-        api_token: "{{ api_token }}"
-      register: cleanup2
+        - name: Delete second test infra-env
+          openshift_lab.assisted_installer.infra_env:
+            state: absent
+            name: "{{ test_name }}-different"
+            api_token: "{{ api_token }}"
+          register: cleanup2
 
-    - name: Verify both deletions succeeded
-      assert:
-        that:
-          - cleanup1.changed == true
-          - cleanup2.changed == true
-        success_msg: "✓ Both test infra-envs deleted"
+        - name: Verify both deletions succeeded
+          assert:
+            that:
+              - cleanup1.changed == true
+              - cleanup2.changed == true
+            success_msg: "✓ Both test infra-envs deleted"
 
-    - name: Test Summary
-      debug:
-        msg: |
-          ========================================
-          ✓ ALL QUERY TESTS PASSED
-          ========================================
+        - name: Test Summary
+          debug:
+            msg: |
+              ========================================
+              ✓ ALL QUERY TESTS PASSED
+              ========================================
 
-          Tested:
-          1. ✓ Create infra-env
-          2. ✓ Query existing by name (found, no-op)
-          3. ✓ Query non-existent by name (creates new)
-          4. ✓ Multiple infra-envs with different names
-          5. ✓ Cleanup both test resources
+              Tested:
+              1. ✓ Create infra-env
+              2. ✓ Query existing by name (found, no-op)
+              3. ✓ Query non-existent by name (creates new)
+              4. ✓ Multiple infra-envs with different names
+              5. ✓ Cleanup both test resources
 
-          The infra_env module correctly:
-          - Finds existing infra-envs by name
-          - Returns no-op when already exists
-          - Creates new when name doesn't exist
-          - Handles multiple infra-envs
+              The infra_env module correctly:
+              - Finds existing infra-envs by name
+              - Returns no-op when already exists
+              - Creates new when name doesn't exist
+              - Handles multiple infra-envs
 
-          All test resources cleaned up.
+              All test resources cleaned up.
+
+      rescue:
+        - name: Test failed - attempting cleanup of both infra-envs
+          debug:
+            msg: "✗ QUERY TEST FAILED. Attempting cleanup of both test infra-envs..."
+
+        - name: Guaranteed cleanup of first infra-env
+          openshift_lab.assisted_installer.infra_env:
+            state: absent
+            name: "{{ test_name }}"
+            api_token: "{{ api_token }}"
+          ignore_errors: true
+
+        - name: Guaranteed cleanup of second infra-env
+          openshift_lab.assisted_installer.infra_env:
+            state: absent
+            name: "{{ test_name }}-different"
+            api_token: "{{ api_token }}"
+          ignore_errors: true
+
+        # Re-fail so successful cleanup does not mask the original test failure.
+        - name: Fail the playbook after cleanup attempt
+          fail:
+            msg: "Query test failed. Check logs above. Cleanup of both infra-envs attempted."
+
+      always:
+        - name: Report cleanup status
+          debug:
+            msg: >-
+              Test block completed. Failure cleanup, when needed, was attempted for both
+              '{{ test_name }}' and '{{ test_name }}-different'; cleanup errors were ignored.

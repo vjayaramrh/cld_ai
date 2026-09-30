@@ -26,7 +26,10 @@
         status_code: [201, 400, 409]
         return_content: true
       register: raw_result
+      # The uri result can retain invocation.module_args (Authorization header
+      # and pull_secret). Suppress task logging so those secrets are not printed.
+      no_log: true
 
-    - name: Show full API response
+    - name: Show API response status
       debug:
-        var: raw_result
+        msg: "API status: {{ raw_result.status }}"

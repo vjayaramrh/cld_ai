@@ -172,9 +172,18 @@ Once you have a discovered host:
   register: result
 ```
 
-**Expected:**
+**Prerequisite:** The host must be in `error`, `installed`, or `cancelled`
+status for the reset to be requested (see `needs_action()` in `host_action.py`).
+If the host is still `installing` (e.g. Test 3 is in progress), the module
+**skips the reset and returns `changed=false`** — it does not force a reset on a
+host that is not in a resettable state.
+
+**Expected (when the host is in a resettable status):**
 - `changed=true` (host reset)
 - Host returns to discovery state
+
+**Expected (when the host is still installing / not resettable):**
+- `changed=false` (guard skips the action)
 
 ---
 

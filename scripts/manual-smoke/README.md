@@ -69,7 +69,11 @@ The **actual test suite** lives in `tests/`:
 
 ```bash
 ansible-playbook scripts/manual-smoke/list-infra-envs.yml
-# Should show 0 infra-envs after tests complete
+# A shared account may contain unrelated infra-envs. Confirm these test
+# resources are absent after tests complete (not that the total count is 0):
+#   - ansible-test-infra-env
+#   - ansible-query-test
+#   - ansible-query-test-different
 ```
 
 ### Cost Warning

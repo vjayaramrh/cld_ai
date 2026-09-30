@@ -46,16 +46,29 @@
       when: all_versions.count > 0
 
     # Test 2: openshift_version_info with filter
+    # A no-match returns count=0 changed=false (not an error), so we do NOT use
+    # ignore_errors here: a real auth/API failure must fail the play, not be
+    # silently reported as "not found".
     - name: "TEST 2: Query specific OpenShift version"
       openshift_lab.assisted_installer.openshift_version_info:
         version: "4.16"
         api_token: "{{ api_token }}"
       register: specific_version
-      ignore_errors: true  # May not exist
+
+    - name: Verify filtered query succeeded as a read (changed=false)
+      assert:
+        that:
+          - specific_version.changed == false
+          - specific_version.count is defined
+        fail_msg: "Filtered version query errored (not a clean not-found result)"
+        success_msg: "✓ Filtered version query returned cleanly (changed=false)"
 
     - name: Show specific version result
       debug:
-        msg: "Version 4.16 query: {{ 'found (' + (specific_version.count | string) + ' matches)' if specific_version.count | default(0) > 0 else 'not found' }}"
+        msg: >-
+          Version 4.16 query:
+          {{ 'found (' + (specific_version.count | string) + ' matches)'
+             if specific_version.count > 0 else 'not found' }}
 
     # Test 3: supported_operator_info
     - name: "TEST 3: List all supported operators"
@@ -78,16 +91,29 @@
       when: all_operators.count > 0
 
     # Test 4: supported_operator_info with name lookup
+    # As with Test 2, a no-match is a clean count=0 result, not an error, so we
+    # do NOT ignore_errors: a real failure must surface instead of masquerading
+    # as "not found".
     - name: "TEST 4: Query specific operator by name"
       openshift_lab.assisted_installer.supported_operator_info:
         name: "lvm"
         api_token: "{{ api_token }}"
       register: lvm_operator
-      ignore_errors: true  # May not exist
+
+    - name: Verify filtered operator query succeeded as a read (changed=false)
+      assert:
+        that:
+          - lvm_operator.changed == false
+          - lvm_operator.count is defined
+        fail_msg: "Filtered operator query errored (not a clean not-found result)"
+        success_msg: "✓ Filtered operator query returned cleanly (changed=false)"
 
     - name: Show specific operator result
       debug:
-        msg: "LVM operator query: {{ 'found (' + (lvm_operator.count | string) + ' properties)' if lvm_operator.count | default(0) > 0 else 'not found' }}"
+        msg: >-
+          LVM operator query:
+          {{ 'found (' + (lvm_operator.count | string) + ' properties)'
+             if lvm_operator.count > 0 else 'not found' }}
 
     # Test 5: Idempotency check
     - name: "TEST 5: Verify idempotency (run same query twice)"
