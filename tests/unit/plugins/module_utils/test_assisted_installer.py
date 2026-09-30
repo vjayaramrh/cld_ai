@@ -43,6 +43,7 @@ def make_module():
     "https://alice:secret@evil.com",
     "https://alice@evil.com",
     "https://alice:secret@api.openshift.com/api/assisted-install/v2",
+    "https://alice:secret@",   # credentials but no host: must not leak via hostname check
 ])
 def test_validate_base_url_rejects_userinfo(url):
     """A base_url carrying username/password must be rejected (would leak the
@@ -53,10 +54,15 @@ def test_validate_base_url_rejects_userinfo(url):
     assert "secret" not in str(exc.value)
 
 
-def test_validate_base_url_error_does_not_leak_password():
-    """The rejection message never contains the embedded password."""
+@pytest.mark.parametrize("url", [
+    "https://u:sup3rsecret@evil.com",
+    "https://u:sup3rsecret@",   # no host: hostname check must not fire first and echo the URL
+])
+def test_validate_base_url_error_does_not_leak_password(url):
+    """The rejection message never contains the embedded password, even when the
+    URL has no hostname (the credential check must run before the hostname check)."""
     with pytest.raises(ValueError) as exc:
-        ai._validate_base_url("https://u:sup3rsecret@evil.com")
+        ai._validate_base_url(url)
     assert "sup3rsecret" not in str(exc.value)
 
 
