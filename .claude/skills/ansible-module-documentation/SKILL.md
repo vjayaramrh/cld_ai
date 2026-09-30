@@ -5,6 +5,13 @@ description: Comprehensive guide to Ansible module documentation standards - DOC
 
 # Ansible Module Documentation Standards
 
+> **Canonical source.** This skill is the single source of truth for module
+> documentation rules (short_description, `elements`, static returns, EXAMPLES
+> thoroughness, author format, markup). The `new-ansible-module` /
+> `new-ai-endpoint-module` skills and CLAUDE.md summarize the must-not-fail subset
+> and defer here for the full rules — update this file first when the standards
+> change.
+
 Complete reference for documenting Ansible modules correctly, based on the [official Ansible documentation guide](https://docs.ansible.com/projects/ansible/latest/dev_guide/developing_modules_documenting.html).
 
 ## Overview

@@ -165,14 +165,17 @@ requires_ansible: ">=2.17.0"
 
 ### ansible-core Support Matrix
 
-**This project supports:** ansible-core 2.17, 2.18, 2.19, 2.20
+**This project supports:** ansible-core 2.17, 2.18, 2.19 (minimum
+`>=2.17.0`). Do not hardcode a version list that drifts from the repo — the
+authoritative set is whatever these three places agree on.
 
-**CRITICAL:** Maintain consistency across three places:
+**CRITICAL:** Maintain consistency across three places (they MUST list the same
+versions):
 1. `meta/runtime.yml` - `requires_ansible`
 2. `.github/workflows/ci.yml` - test matrix
 3. `tests/sanity/ignore-*.txt` - one file per supported version
 
-**Example CI matrix:**
+**CI matrix (must match the list above):**
 ```yaml
 strategy:
   matrix:
@@ -180,16 +183,17 @@ strategy:
       - stable-2.17
       - stable-2.18
       - stable-2.19
-      - stable-2.20
 ```
 
-**Sanity ignore files:**
+**Sanity ignore files (one per supported version):**
 ```
 tests/sanity/ignore-2.17.txt
 tests/sanity/ignore-2.18.txt
 tests/sanity/ignore-2.19.txt
-tests/sanity/ignore-2.20.txt
 ```
+
+> Adding a version (e.g. 2.20) means updating all three places in the same PR;
+> CLAUDE.md's "ansible-core support matrix" rule enforces this.
 
 ---
 
@@ -275,13 +279,12 @@ tests/integration/targets/cluster_info/
 
 **Location:** `tests/sanity/ignore-<version>.txt`
 
-**One file per ansible-core version:**
+**One file per supported ansible-core version (currently 2.17–2.19):**
 ```
 tests/sanity/
 ├── ignore-2.17.txt
 ├── ignore-2.18.txt
-├── ignore-2.19.txt
-└── ignore-2.20.txt
+└── ignore-2.19.txt
 ```
 
 **Format:** `path/to/file.py error-code`

@@ -56,6 +56,11 @@ read it before adding a module.
 
 ## Module authoring rules (prevent real sanity failures)
 
+> Full module-documentation rules (short_description, `elements`, static returns,
+> EXAMPLES thoroughness, markup) live in the **`ansible-module-documentation`**
+> skill — the canonical source. The bullets below are the enforced must-not-fail
+> subset; when in doubt, defer to that skill.
+
 - **Naming (publishable convention — see DESIGN.md §5):** managed resources are
   **singular** (`cluster`, `infra_env`, `host`); read-only modules are **singular
   + `_info`** (`openshift_version_info`, `cluster_info`); RPC-style actions are
@@ -160,6 +165,12 @@ This applies to:
 - Any documentation referencing code
 
 ## Module authoring workflow
+
+> **Status: provisional.** This section (assumptions echo-back, TDD adoption, and
+> the model-selection/cost notes below) is an evolving process being validated
+> with the first modules and may change as contributors join. The *enforced*,
+> non-negotiable rules are in "Module authoring rules" and the "verification
+> checklist" above — those gate merges; the workflow here is guidance.
 
 **Step 1: Document assumptions before starting**
 
