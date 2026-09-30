@@ -57,9 +57,9 @@ EXAMPLES = r"""
     api_token: "{{ assisted_installer_token }}"
   register: operators
 
-- name: Show the operator list
+- name: Show the operator names
   ansible.builtin.debug:
-    var: operators.supported_operators
+    var: operators.operator_names
 
 - name: Get properties for a specific operator
   openshift_lab.assisted_installer.supported_operator_info:
@@ -67,42 +67,77 @@ EXAMPLES = r"""
     api_token: "{{ assisted_installer_token }}"
   register: lvm_props
 
+- name: Show the queried operator's properties
+  ansible.builtin.debug:
+    var: lvm_props.operator_properties
+
 - name: Query CNV operator properties (token from AI_API_TOKEN env)
   openshift_lab.assisted_installer.supported_operator_info:
     name: cnv
 """
 
 RETURN = r"""
-supported_operators:
+operator_names:
   description:
-    - When O(name) is not provided, this is a list of supported operator name strings.
-    - When O(name) is provided, this is a list of property objects for that operator.
-  returned: success
-  type: raw
+    - List of supported operator name strings.
+    - Returned only when O(name) is B(not) provided (the list query).
+  returned: when O(name) is not provided
+  type: list
+  elements: str
   sample:
-    # Without name parameter - list of operator names
     - "lso"
     - "cnv"
     - "odf"
     - "lvm"
-    # With name parameter - list of property objects
-    - name: "SNO_SUPPORT"
-      description: "Whether the operator supports Single Node OpenShift"
-      data_type: "boolean"
-      mandatory: false
-      default_value: "false"
+operator_properties:
+  description:
+    - List of property objects for the operator named in O(name).
+    - Returned only when O(name) is provided (the detail query).
+  returned: when O(name) is provided
+  type: list
+  elements: dict
+  contains:
+    name:
+      description: Property name.
+      type: str
+      sample: "SNO_SUPPORT"
+    description:
+      description: Human-readable description of the property.
+      type: str
+      sample: "Whether the operator supports Single Node OpenShift"
+    data_type:
+      description: The property's data type.
+      type: str
+      sample: "boolean"
+    mandatory:
+      description: Whether the property is required.
+      type: bool
+      sample: false
+    default_value:
+      description: Default value for the property, when defined.
+      type: str
+      sample: "false"
+    options:
+      description: Allowed values to select from, when the property is an enum.
+      type: list
+      elements: str
 name:
   description: The operator name that was queried (only returned when O(name) was provided).
-  returned: when name parameter is provided
+  returned: when O(name) is provided
   type: str
   sample: "lvm"
 count:
   description:
-    - When O(name) is not provided, the number of operators in the list.
-    - When O(name) is provided, the number of properties returned.
+    - When O(name) is not provided, the number of operators in RV(operator_names).
+    - When O(name) is provided, the number of properties in RV(operator_properties).
   returned: success
   type: int
   sample: 28
+changed:
+  description: Always C(false); this is a read-only info module.
+  returned: always
+  type: bool
+  sample: false
 """
 
 from ansible.module_utils.basic import AnsibleModule, env_fallback
@@ -158,15 +193,18 @@ def main():
         )
     operators = data
 
+    # Split the return by shape so each field has one predictable type:
+    #   - detail query (name given): a list of property dicts -> operator_properties
+    #   - list query   (no name):    a list of name strings   -> operator_names
     result = {
         "changed": False,
-        "supported_operators": operators,
         "count": len(operators),
     }
-
-    # Include the name in result if it was queried
     if operator_name:
         result["name"] = operator_name
+        result["operator_properties"] = operators
+    else:
+        result["operator_names"] = operators
 
     module.exit_json(**result)
 

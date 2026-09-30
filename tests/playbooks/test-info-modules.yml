@@ -79,7 +79,7 @@
     - name: Verify operators returned
       assert:
         that:
-          - all_operators.supported_operators is defined
+          - all_operators.operator_names is defined
           - all_operators.count > 0
           - all_operators.changed == false
         fail_msg: "supported_operator_info failed to return operators"
@@ -87,7 +87,7 @@
 
     - name: Display sample operators
       debug:
-        msg: "Sample operators: {{ all_operators.supported_operators[:5] }}"
+        msg: "Sample operators: {{ all_operators.operator_names[:5] }}"
       when: all_operators.count > 0
 
     # Test 4: supported_operator_info with name lookup
@@ -105,6 +105,9 @@
         that:
           - lvm_operator.changed == false
           - lvm_operator.count is defined
+          # Detail query returns the typed properties field, never the name list.
+          - lvm_operator.operator_properties is defined
+          - lvm_operator.operator_names is not defined
         fail_msg: "Filtered operator query errored (not a clean not-found result)"
         success_msg: "✓ Filtered operator query returned cleanly (changed=false)"
 
