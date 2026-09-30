@@ -1,0 +1,72 @@
+---
+# Query a specific infra-env by ID (using raw API)
+# Note: The infra_env module works by name (state-based)
+# This playbook shows how to query by ID directly via API
+
+- name: Query Infra-Env by ID
+  hosts: localhost
+  gather_facts: false
+  connection: local
+
+  vars:
+    api_token: "{{ lookup('env', 'AI_API_TOKEN') }}"
+    # Set this to the ID you want to query
+    infra_env_id: "{{ lookup('env', 'INFRA_ENV_ID') | default('', true) }}"
+
+  tasks:
+    - name: Check if INFRA_ENV_ID is set
+      fail:
+        msg: |
+          INFRA_ENV_ID environment variable is required.
+
+          Usage:
+            1. List all infra-envs to get an ID:
+               ansible-playbook tests/playbooks/list-infra-envs.yml
+
+            2. Set the ID and query:
+               export INFRA_ENV_ID="8437d6bf-4ee4-4eba-ad1f-69fcbc927f70"
+               ansible-playbook tests/playbooks/query-infra-env-by-id.yml
+
+            Or inline:
+               INFRA_ENV_ID="your-id-here" ansible-playbook tests/playbooks/query-infra-env-by-id.yml
+      when: infra_env_id == ""
+
+    - name: Query infra-env by ID via API
+      uri:
+        url: "https://api.openshift.com/api/assisted-install/v2/infra-envs/{{ infra_env_id }}"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ api_token }}"
+        return_content: true
+        status_code: [200, 404]
+      register: result
+
+    - name: Show result if found
+      debug:
+        msg: |
+          ========================================
+          Infra-Env Found
+          ========================================
+          Name: {{ result.json.name }}
+          ID: {{ result.json.id }}
+          Cluster ID: {{ result.json.cluster_id | default('(not bound)') }}
+          OpenShift Version: {{ result.json.openshift_version }}
+          CPU Architecture: {{ result.json.cpu_architecture }}
+          Image Type: {{ result.json.type }}
+          Created At: {{ result.json.created_at }}
+          Updated At: {{ result.json.updated_at }}
+          Download URL: {{ result.json.download_url }}
+          Expires At: {{ result.json.expires_at }}
+      when: result.status == 200
+
+    - name: Show error if not found
+      debug:
+        msg: |
+          ========================================
+          Infra-Env Not Found
+          ========================================
+          ID: {{ infra_env_id }}
+          HTTP Status: {{ result.status }}
+
+          This infra-env may have been deleted or the ID is incorrect.
+      when: result.status == 404

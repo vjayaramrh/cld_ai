@@ -1,0 +1,32 @@
+---
+# Debug: Try to create infra-env via raw API to see exact error
+- name: Debug Infra-Env Creation
+  hosts: localhost
+  gather_facts: false
+
+  vars:
+    api_token: "{{ lookup('env', 'AI_API_TOKEN') }}"
+    pull_secret: "{{ lookup('file', '../../pull_secret.json', errors='ignore') }}"
+
+  tasks:
+    - name: Attempt to create infra-env via raw API
+      uri:
+        url: "https://api.openshift.com/api/assisted-install/v2/infra-envs"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ api_token }}"
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          name: "ansible-test-infra-env"
+          pull_secret: "{{ pull_secret }}"
+          openshift_version: "4.16"
+          cpu_architecture: "x86_64"
+          image_type: "full-iso"
+        status_code: [201, 400, 409]
+        return_content: true
+      register: raw_result
+
+    - name: Show full API response
+      debug:
+        var: raw_result

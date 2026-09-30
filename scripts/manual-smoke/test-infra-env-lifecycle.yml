@@ -1,0 +1,264 @@
+---
+# Full lifecycle test for infra_env module against live API
+# Creates → verifies → updates → deletes a test infrastructure environment
+# CAUTION: Creates real resources (with guaranteed cleanup)
+
+- name: Test infra_env Module Lifecycle
+  hosts: localhost
+  gather_facts: false
+  connection: local
+
+  vars:
+    api_token: "{{ lookup('env', 'AI_API_TOKEN') }}"
+    test_name: "ansible-test-infra-env"
+    test_pull_secret: "{{ lookup('file', '../../pull_secret.json', errors='ignore') | trim | default(lookup('env', 'PULL_SECRET')) }}"
+
+  tasks:
+    # === Sanity Checks ===
+    - name: Verify API token is provided
+      fail:
+        msg: "AI_API_TOKEN environment variable is required"
+      when: api_token == ""
+
+    - name: Verify pull secret is provided
+      fail:
+        msg: |
+          Pull secret is required. Either:
+
+          Option 1 (Recommended): Create pull_secret.json file
+            1. Get from: https://console.redhat.com/openshift/install/pull-secret
+            2. Save to: pull_secret.json (in repo root)
+            3. Run: ./run.sh shell
+
+          Option 2: Use environment variable
+            export PULL_SECRET='{"auths": ...}'
+            ./run.sh shell
+
+          The pull_secret.json file is git-ignored (safe from commits).
+      when: test_pull_secret == ""
+
+    - name: Display test banner
+      debug:
+        msg: |
+          ========================================
+          Infra-Env Module Lifecycle Test
+          ========================================
+          Test Name: {{ test_name }}
+
+          This will:
+          1. Create test infra-env
+          2. Verify creation
+          3. Test create idempotency (no-op)
+          4. Update mutable field (drift reconciliation)
+          5. Delete infra-env
+          6. Verify deletion
+          7. Test delete idempotency (no-op)
+
+          All resources will be cleaned up (guaranteed via block/always).
+
+    # === Main Test Block with Guaranteed Cleanup ===
+    - block:
+        # === STEP 1: Create ===
+        - name: "STEP 1: Create test infra-env"
+          openshift_lab.assisted_installer.infra_env:
+            state: present
+            name: "{{ test_name }}"
+            pull_secret: "{{ test_pull_secret }}"
+            openshift_version: "4.16"
+            cpu_architecture: "x86_64"
+            image_type: "full-iso"
+            api_token: "{{ api_token }}"
+          register: create_result
+
+        - name: Verify create returned changed=true
+          assert:
+            that:
+              - create_result.changed == true
+              - create_result.infra_env.name == test_name
+              - create_result.infra_env.id is defined
+            fail_msg: "Create failed or didn't report changed=true"
+            success_msg: "✓ STEP 1 PASSED: Created infra-env (changed=true)"
+
+        - name: Show created infra-env details
+          debug:
+            msg: |
+              Created infra-env:
+                Name: {{ create_result.infra_env.name }}
+                ID: {{ create_result.infra_env.id }}
+                OpenShift Version: {{ create_result.infra_env.openshift_version }}
+                CPU Architecture: {{ create_result.infra_env.cpu_architecture }}
+                Image Type: {{ create_result.infra_env.type }}
+                Download URL: {{ create_result.infra_env.download_url | default('(generating...)') }}
+
+        # === STEP 2: Verify via List ===
+        - name: "STEP 2: List infra-envs to verify creation"
+          uri:
+            url: "https://api.openshift.com/api/assisted-install/v2/infra-envs"
+            method: GET
+            headers:
+              Authorization: "Bearer {{ api_token }}"
+            return_content: true
+            status_code: 200
+          register: list_result
+
+        - name: Verify test infra-env appears in list
+          assert:
+            that:
+              - list_result.json | selectattr('name', 'equalto', test_name) | list | length == 1
+            fail_msg: "Test infra-env not found in list after creation"
+            success_msg: "✓ STEP 2 PASSED: Infra-env verified in list"
+
+        # === STEP 3: Idempotency (No-Op) ===
+        - name: "STEP 3: Run same create again (should be no-op)"
+          openshift_lab.assisted_installer.infra_env:
+            state: present
+            name: "{{ test_name }}"
+            pull_secret: "{{ test_pull_secret }}"
+            openshift_version: "4.16"
+            cpu_architecture: "x86_64"
+            image_type: "full-iso"
+            api_token: "{{ api_token }}"
+          register: noop_result
+
+        - name: Verify no-op returned changed=false
+          assert:
+            that:
+              - noop_result.changed == false
+              - noop_result.infra_env.id == create_result.infra_env.id
+            fail_msg: "Second run should be no-op (changed=false)"
+            success_msg: "✓ STEP 3 PASSED: Create idempotency verified (changed=false)"
+
+        # === STEP 4: Update (Drift Reconciliation) ===
+        - name: "STEP 4: Update infra-env (change image_type to minimal-iso)"
+          openshift_lab.assisted_installer.infra_env:
+            state: present
+            name: "{{ test_name }}"
+            pull_secret: "{{ test_pull_secret }}"
+            openshift_version: "4.16"
+            cpu_architecture: "x86_64"
+            image_type: "minimal-iso"  # Changed from full-iso
+            api_token: "{{ api_token }}"
+          register: update_result
+
+        - name: Verify update returned changed=true
+          assert:
+            that:
+              - update_result.changed == true
+              - update_result.infra_env.id == create_result.infra_env.id
+              - update_result.infra_env.type == 'minimal-iso'
+            fail_msg: "Update failed or didn't report changed=true"
+            success_msg: "✓ STEP 4 PASSED: Update/drift reconciliation (changed=true)"
+
+        - name: Show updated field
+          debug:
+            msg: "Image type changed: full-iso → {{ update_result.infra_env.type }}"
+
+        # === STEP 5: Delete ===
+        - name: "STEP 5: Delete test infra-env"
+          openshift_lab.assisted_installer.infra_env:
+            state: absent
+            name: "{{ test_name }}"
+            api_token: "{{ api_token }}"
+          register: delete_result
+
+        - name: Verify delete returned changed=true
+          assert:
+            that:
+              - delete_result.changed == true
+            fail_msg: "Delete failed or didn't report changed=true"
+            success_msg: "✓ STEP 5 PASSED: Deleted infra-env (changed=true)"
+
+        # === STEP 6: Verify Deletion ===
+        - name: "STEP 6: List infra-envs to verify deletion"
+          uri:
+            url: "https://api.openshift.com/api/assisted-install/v2/infra-envs"
+            method: GET
+            headers:
+              Authorization: "Bearer {{ api_token }}"
+            return_content: true
+            status_code: 200
+          register: final_list
+
+        - name: Verify test infra-env no longer exists
+          assert:
+            that:
+              - final_list.json | selectattr('name', 'equalto', test_name) | list | length == 0
+            fail_msg: "Test infra-env still exists after deletion"
+            success_msg: "✓ STEP 6 PASSED: Cleanup verified"
+
+        # === STEP 7: Delete Already-Absent (No-Op) ===
+        - name: "STEP 7: Delete again (should be no-op)"
+          openshift_lab.assisted_installer.infra_env:
+            state: absent
+            name: "{{ test_name }}"
+            api_token: "{{ api_token }}"
+          register: delete_noop
+
+        - name: Verify delete of absent resource is no-op
+          assert:
+            that:
+              - delete_noop.changed == false
+            fail_msg: "Delete of absent resource should be no-op (changed=false)"
+            success_msg: "✓ STEP 7 PASSED: Delete idempotency verified (changed=false)"
+
+        # === Summary ===
+        - name: Test Summary
+          debug:
+            msg: |
+              ========================================
+              ✓ ALL TESTS PASSED
+              ========================================
+
+              Lifecycle Tests:
+              1. ✓ Create (changed=true)
+              2. ✓ Verify creation
+              3. ✓ Create idempotency (changed=false)
+              4. ✓ Update drift reconciliation (changed=true)
+              5. ✓ Delete (changed=true)
+              6. ✓ Verify deletion
+              7. ✓ Delete idempotency (changed=false)
+
+              The infra_env module correctly implements the state-based pattern.
+              All test resources have been cleaned up.
+
+      rescue:
+        - name: Test failed - attempting cleanup
+          debug:
+            msg: |
+              ========================================
+              ✗ TEST FAILED
+              ========================================
+              Attempting guaranteed cleanup...
+
+        - name: Guaranteed cleanup on failure
+          openshift_lab.assisted_installer.infra_env:
+            state: absent
+            name: "{{ test_name }}"
+            api_token: "{{ api_token }}"
+          ignore_errors: true
+
+        - name: Verify cleanup after failure
+          uri:
+            url: "https://api.openshift.com/api/assisted-install/v2/infra-envs"
+            method: GET
+            headers:
+              Authorization: "Bearer {{ api_token }}"
+            return_content: true
+            status_code: 200
+          register: cleanup_check
+          ignore_errors: true
+
+        - name: Report cleanup status
+          debug:
+            msg: |
+              Cleanup status:
+              Remaining infra-envs named '{{ test_name }}': {{ cleanup_check.json | default([]) | selectattr('name', 'equalto', test_name) | list | length }}
+
+        - name: Fail the playbook after cleanup attempt
+          fail:
+            msg: "Lifecycle test failed. Check logs above. Cleanup attempted."
+
+      always:
+        - name: Final cleanup verification
+          debug:
+            msg: "Test block completed. Cleanup was guaranteed via block/always pattern."

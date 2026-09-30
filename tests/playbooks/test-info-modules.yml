@@ -1,0 +1,121 @@
+---
+# Test playbook for info modules against live API
+# Requires: AI_API_TOKEN environment variable
+
+- name: Test OpenShift Assisted Installer Info Modules
+  hosts: localhost
+  gather_facts: false
+  connection: local
+
+  vars:
+    # Token from environment (required)
+    api_token: "{{ lookup('env', 'AI_API_TOKEN') }}"
+
+  tasks:
+    # Sanity check: ensure token is set
+    - name: Verify API token is provided
+      fail:
+        msg: "AI_API_TOKEN environment variable is required"
+      when: api_token == ""
+
+    - name: Display test banner
+      debug:
+        msg: |
+          ========================================
+          Testing Info Modules Against Live API
+          ========================================
+
+    # Test 1: openshift_version_info
+    - name: "TEST 1: List all OpenShift versions"
+      openshift_lab.assisted_installer.openshift_version_info:
+        api_token: "{{ api_token }}"
+      register: all_versions
+
+    - name: Verify versions returned
+      assert:
+        that:
+          - all_versions.openshift_versions is defined
+          - all_versions.count > 0
+          - all_versions.changed == false
+        fail_msg: "openshift_version_info failed to return versions"
+        success_msg: "✓ openshift_version_info returned {{ all_versions.count }} versions"
+
+    - name: Display sample versions
+      debug:
+        msg: "Sample versions: {{ (all_versions.openshift_versions.keys() | list)[:3] }}"
+      when: all_versions.count > 0
+
+    # Test 2: openshift_version_info with filter
+    - name: "TEST 2: Query specific OpenShift version"
+      openshift_lab.assisted_installer.openshift_version_info:
+        version: "4.16"
+        api_token: "{{ api_token }}"
+      register: specific_version
+      ignore_errors: true  # May not exist
+
+    - name: Show specific version result
+      debug:
+        msg: "Version 4.16 query: {{ 'found (' + (specific_version.count | string) + ' matches)' if specific_version.count | default(0) > 0 else 'not found' }}"
+
+    # Test 3: supported_operator_info
+    - name: "TEST 3: List all supported operators"
+      openshift_lab.assisted_installer.supported_operator_info:
+        api_token: "{{ api_token }}"
+      register: all_operators
+
+    - name: Verify operators returned
+      assert:
+        that:
+          - all_operators.supported_operators is defined
+          - all_operators.count > 0
+          - all_operators.changed == false
+        fail_msg: "supported_operator_info failed to return operators"
+        success_msg: "✓ supported_operator_info returned {{ all_operators.count }} operators"
+
+    - name: Display sample operators
+      debug:
+        msg: "Sample operators: {{ all_operators.supported_operators[:5] }}"
+      when: all_operators.count > 0
+
+    # Test 4: supported_operator_info with name lookup
+    - name: "TEST 4: Query specific operator by name"
+      openshift_lab.assisted_installer.supported_operator_info:
+        name: "lvm"
+        api_token: "{{ api_token }}"
+      register: lvm_operator
+      ignore_errors: true  # May not exist
+
+    - name: Show specific operator result
+      debug:
+        msg: "LVM operator query: {{ 'found (' + (lvm_operator.count | string) + ' properties)' if lvm_operator.count | default(0) > 0 else 'not found' }}"
+
+    # Test 5: Idempotency check
+    - name: "TEST 5: Verify idempotency (run same query twice)"
+      openshift_lab.assisted_installer.openshift_version_info:
+        api_token: "{{ api_token }}"
+      register: versions_run1
+
+    - name: Run same query again
+      openshift_lab.assisted_installer.openshift_version_info:
+        api_token: "{{ api_token }}"
+      register: versions_run2
+
+    - name: Verify idempotency
+      assert:
+        that:
+          - versions_run1.changed == false
+          - versions_run2.changed == false
+          - versions_run1.openshift_versions == versions_run2.openshift_versions
+        success_msg: "✓ Info modules are idempotent (changed=false, same results)"
+
+    # Summary
+    - name: Test Summary
+      debug:
+        msg: |
+          ========================================
+          ✓ All Info Module Tests Passed
+          ========================================
+          - openshift_version_info: {{ all_versions.count }} versions
+          - supported_operator_info: {{ all_operators.count }} operators
+          - Idempotency: verified
+          - changed=false: verified for all reads

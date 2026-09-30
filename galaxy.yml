@@ -26,6 +26,10 @@ build_ignore:
   - .pre-commit-config.yaml
   - .coderabbit.yaml
   - run.sh
-  - scripts
+  - scripts  # Includes manual-smoke (live API tests requiring real credentials)
   - tests/output
   - "*.tar.gz"
+  # Secrets - never bundle credentials into collection tarball
+  - "*.token"
+  - pull_secret*
+  - .env
