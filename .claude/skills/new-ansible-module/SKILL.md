@@ -17,14 +17,21 @@ elsewhere.
    match `argument_spec` **exactly**. `EXAMPLES` must be **thorough for the module
    kind**, not a single stub (see the template below).
 3. **Valid author**: `author:\n  - Name (@githubhandle)` (bare names fail sanity).
-4. **`no_log=False`** on any arg *named* like a secret (`key`/`password`/`token`/…)
-   that isn't actually secret.
+4. **`no_log`** — set **`no_log=True`** on every arg that IS a secret
+   (`api_token`, `offline_token`, `pull_secret`, ssh/private keys) so its value is
+   never logged. Only set **`no_log=False`** on an arg *named* like a secret
+   (`..._key`, `..._id`) that isn't actually one, to silence sanity's false
+   positive. Getting this wrong either leaks a credential or fails sanity.
 5. **Idempotent**: observe → compare → act; `changed=True` only on real change.
 6. **Check mode**: `supports_check_mode=True`, and never mutate when `module.check_mode`.
 7. **Finish only** via `module.exit_json(...)` / `module.fail_json(msg=...)`.
 8. **HTTP** via `ansible.module_utils.urls.fetch_url` — never `requests`.
 
 ## Documentation Standards (Critical)
+
+> Full rules live in the **`ansible-module-documentation`** skill (canonical
+> source). The items below are the highest-impact subset repeated here for
+> convenience; if they ever disagree, that skill wins.
 
 Per the [Ansible Module Documentation Guide](https://docs.ansible.com/projects/ansible/latest/dev_guide/developing_modules_documenting.html):
 
@@ -209,7 +216,8 @@ def run_module():
     module = AnsibleModule(
         argument_spec=dict(
             # arg=dict(type="str", required=True),
-            # keyish=dict(type="str", required=True, no_log=False),
+            # api_token=dict(type="str", no_log=True),        # real secret -> True
+            # resource_key=dict(type="str", no_log=False),    # not secret -> silence FP
         ),
         supports_check_mode=True,
     )

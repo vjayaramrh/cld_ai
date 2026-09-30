@@ -6,6 +6,58 @@ A chronological journal of issues discovered, resolutions implemented, and lesso
 
 ---
 
+## 2026-09-30: Skills Drifted From Real Code - Teaching Materials Need Executable Verification
+
+**Issue:** An audit of the five `.claude/skills/*/SKILL.md` files found nine defects
+— several of them "gray errors" (examples that look right but do not run) — even
+though the actual `plugins/` modules and `tests/` were correct.
+
+**What happened:** The skills had accumulated drift from the codebase they teach:
+- `ansible-module-testing` mocked `monkeypatch.setattr("my_module.fetch_url", ...)`,
+  but modules here never import `fetch_url` — they call the shared client, and real
+  tests patch `ai.fetch_url`. The taught mock would silently no-op (hit the network).
+- The same skill used `exc.value.msg` (the helper only sets `exc.value.result`),
+  re-patched `monkeypatch` twice instead of queuing responses, and used invalid
+  Jinja `result.changed is true`/`is false` in integration asserts.
+- `ansible-collection-structure` claimed support for ansible-core **2.20**, which
+  exists nowhere in `meta/runtime.yml`, CI, or the sanity ignore files (2.17–2.19).
+- `new-ansible-module` documented only `no_log=False` (the false-positive case),
+  never the primary `no_log=True` rule for real secrets.
+
+**Impact:** The existing modules were unaffected (written correctly), but a new
+contributor following the skills verbatim would have produced a module whose tests
+don't actually mock, assert on a nonexistent attribute, and fail to parse — the
+exact "one broken skill → many broken implementations" risk CLAUDE.md §0 warns about.
+
+**How we discovered it:** User asked for a review of CLAUDE.md and the skills; each
+suspected defect was then verified against the real `ansible_helpers.py`,
+`test_infra_env.py`, `meta/runtime.yml`, and the modules' `argument_spec` before
+being confirmed as a finding.
+
+**Resolution implemented:** Rewrote the testing skill to teach the real
+`ansible_helpers` API (`fake_fetch_url`/`queue_fetch_url` patched onto
+`ai.fetch_url`, `exc.value.result["msg"]`, `is changed`/`is not changed`);
+corrected the support matrix; added the `no_log=True` rule; and added
+canonical-source pointers so the doc-standards stop being triplicated (PR on
+branch `docs/fix-skill-gray-errors`). Every corrected test example was copied into
+a scratch test and run green via `ansible-test units` before commit.
+
+**Lesson learned:** Skills are code, not prose — verify their examples execute
+against the real helpers/modules, and treat drift from the repo (mock targets,
+helper APIs, support matrices) as a defect class of its own.
+
+**Artifacts:** PR on `docs/fix-skill-gray-errors`; five SKILL.md files + CLAUDE.md.
+
+**What to do differently:**
+- When code that a skill teaches changes (helper API, support matrix, module
+  patterns), update the skill in the same PR — add it to the conflict-check sweep.
+- Keep one canonical source per topic and have the others point to it, so there is
+  one place to update.
+- Run skill code examples through `ansible-test units` (not plain `pytest`, which
+  lacks the collection path) as part of skill authoring.
+
+---
+
 ## 2026-09-29: Opus Review - Four Critical Process Gaps
 
 **Context:** Requested Opus review of testing infrastructure before committing. Opus identified four critical process gaps that would have leaked credentials and violated design commitments.
