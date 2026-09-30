@@ -77,12 +77,25 @@ Test module logic **without** network calls or external dependencies. Mock all s
 ### Test Structure
 
 ```
-tests/unit/plugins/modules/
-├── ansible_helpers.py      # Mock helpers (AnsibleExitJson, set_module_args,
-│                           #   patch_ansible, fake_fetch_url, queue_fetch_url)
-├── conftest.py             # pytest configuration
-└── test_my_module.py       # Test cases
+tests/unit/plugins/
+├── modules/
+│   ├── ansible_helpers.py  # Mock helpers (AnsibleExitJson, set_module_args,
+│   │                       #   patch_ansible, fake_fetch_url, queue_fetch_url)
+│   ├── conftest.py         # pytest configuration
+│   └── test_my_module.py   # Module test cases
+└── module_utils/           # Shared-client (module_utils/) tests go here
+    ├── conftest.py         # adds this dir + ../modules to sys.path (reuse helpers)
+    └── test_assisted_installer.py
 ```
+
+**Give every `plugins/module_utils/` file its own test target** under
+`tests/unit/plugins/module_utils/`. The shared client's error/validation/refresh
+branches are not reachable from a module's happy path, so relying on module tests
+to cover them leaves those branches unexecuted — an overall coverage ≥90% can still
+hide a shared file whose error paths are entirely untested. Its `conftest.py`
+inserts the sibling `modules/` dir on `sys.path` so it can reuse the shared
+`ansible_helpers` without duplication. (See lessons-learned.md, 2026-09-30 "Shared
+Client Had No Direct Tests".)
 
 ### Mock at the shared client, not at the module
 
