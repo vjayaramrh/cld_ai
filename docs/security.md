@@ -47,14 +47,20 @@ non-object body fails cleanly rather than raising).
 
 ## 3. TLS is verified — keep it that way
 
-All API calls go over HTTPS with **certificate verification on**. The shared
-client passes `validate_certs=True` to `fetch_url` explicitly, so the protection
-is visible in the code and can't be lost to a silent default change.
+All API calls go over HTTPS with **certificate verification on**. `fetch_url`
+verifies certificates by default: it reads `validate_certs` from `module.params`
+and falls back to `True` when the module does not expose that option — which ours
+do not. The shared client therefore relies on that secure default rather than
+passing `validate_certs` to `fetch_url` itself (`fetch_url` does **not** accept
+`validate_certs` as a keyword argument — passing it raises `TypeError`; see
+lessons-learned "Right Fix, Wrong Explanation").
 
 - Do **not** disable certificate verification to work around a self-signed test
   endpoint. Use the integration mock server's documented setup instead.
 - If a `validate_certs` option is ever exposed to users, it must **default to
-  `True`**; turning it off is opt-in and clearly a footgun.
+  `True`**; turning it off is opt-in and clearly a footgun. (Because `fetch_url`
+  reads `validate_certs` from `module.params`, merely adding such an option with a
+  `True` default would wire it through — no change to the shared client needed.)
 
 ## 4. Every call has a timeout
 

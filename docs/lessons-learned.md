@@ -6,6 +6,46 @@ A chronological journal of issues discovered, resolutions implemented, and lesso
 
 ---
 
+## 2026-10-01: An Issue's Proposed Fix Is Not Authoritative (and a `**kwargs` mock can't catch a signature mismatch)
+
+**Issue:** #55 asked to fix an inaccurate `security.md` §3 claim ("the shared
+client passes `validate_certs=True` to `fetch_url` explicitly") and marked
+**option 1 — actually pass `validate_certs=True` in `request()` + a unit test —
+as preferred**. I started implementing exactly that: added `validate_certs=True`
+to both `fetch_url` calls, added `fake_fetch_url` recording of the kwarg, and two
+asserting tests. `./run.sh --check` went green.
+
+**The trap:** `fetch_url` does **not** accept `validate_certs` as a keyword
+argument (confirmed here via `inspect.signature` in-container: no `validate_certs`
+param, no `**kwargs`). The real call would raise
+`TypeError: fetch_url() got an unexpected keyword argument 'validate_certs'` at
+runtime. It passed CI only because the test double `fake_fetch_url(... **kwargs)`
+silently swallows any keyword — so a **unit test can never catch a `fetch_url`
+signature mismatch**. This exact fact was already recorded in the 2026-09-30
+lesson "Right Fix, Wrong Explanation," which #55 (and I, initially) didn't consult.
+
+**How we discovered it:** The documentation conflict-check grep (`grep -rn
+validate_certs docs/`) surfaced the prior lesson, which flatly contradicts
+option 1. Verified against ansible-core in the container before reversing.
+
+**Resolution implemented:** Dropped option 1 entirely; reverted the code/test
+changes. Took **option 2** — reworded §3 to state the truth: `fetch_url` reads
+`validate_certs` from `module.params` (default `True`), our modules don't expose
+it, so verification is on by the secure default. Fixed #56 in the same PR.
+
+**Lesson learned:** A GitHub issue's recommended fix is a proposal, not ground
+truth — verify it against the source and the existing lessons before coding; and
+never trust a passing unit test to validate a call signature when the test double
+accepts `**kwargs` — check the real callee's signature directly.
+
+**What to do differently:** Before passing any new keyword to a third-party
+function (`fetch_url`, `open_url`, …), confirm it against `inspect.signature` /
+the pinned source for the supported versions — a `**kwargs` mock guarantees the
+test passes regardless. Run the docs conflict-check grep *before* implementing,
+not only before opening the PR.
+
+---
+
 ## 2026-09-30: Identity Lookup vs. Immutable Fields (infra_env duplicate-create)
 
 **Issue:** The `infra_env` state module scoped its existence-check GET by
