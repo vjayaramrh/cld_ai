@@ -25,8 +25,8 @@ def test_query_returns_results(monkeypatch):
     with pytest.raises(AnsibleExitJson) as exc:
         my_module.main()
     
-    assert exc.value.args[0]['changed'] is False
-    assert len(exc.value.args[0]['results']) > 0
+    assert exc.value.result['changed'] is False
+    assert len(exc.value.result['results']) > 0
 ```
 
 **State module (create):**
@@ -43,7 +43,7 @@ def test_present_creates_when_absent(monkeypatch):
     with pytest.raises(AnsibleExitJson) as exc:
         my_module.main()
     
-    assert exc.value.args[0]['changed'] is True
+    assert exc.value.result['changed'] is True
     assert calls[1]["method"] == "POST"
 ```
 
@@ -61,7 +61,7 @@ def test_present_updates_when_drift(monkeypatch):
     with pytest.raises(AnsibleExitJson) as exc:
         my_module.main()
     
-    assert exc.value.args[0]['changed'] is True
+    assert exc.value.result['changed'] is True
     assert calls[1]["method"] == "PATCH"
 ```
 
@@ -79,7 +79,7 @@ def test_absent_deletes_when_exists(monkeypatch):
     with pytest.raises(AnsibleExitJson) as exc:
         my_module.main()
     
-    assert exc.value.args[0]['changed'] is True
+    assert exc.value.result['changed'] is True
     assert calls[1]["method"] == "DELETE"
 ```
 
@@ -117,7 +117,7 @@ def test_present_no_drift_is_unchanged(monkeypatch):
     with pytest.raises(AnsibleExitJson) as exc:
         my_module.main()
     
-    assert exc.value.args[0]['changed'] is False
+    assert exc.value.result['changed'] is False
     assert len(calls) == 1  # Only GET, no PATCH
 ```
 
@@ -134,7 +134,7 @@ def test_absent_when_missing_is_unchanged(monkeypatch):
     with pytest.raises(AnsibleExitJson) as exc:
         my_module.main()
     
-    assert exc.value.args[0]['changed'] is False
+    assert exc.value.result['changed'] is False
     assert len(calls) == 1  # Only GET, no DELETE
 ```
 
@@ -155,7 +155,7 @@ def test_action_when_already_done_is_unchanged(monkeypatch):
     with pytest.raises(AnsibleExitJson) as exc:
         my_module.main()
     
-    assert exc.value.args[0]['changed'] is False
+    assert exc.value.result['changed'] is False
     assert len(calls) == 1  # Only GET, no action POST
 ```
 
@@ -185,13 +185,13 @@ def test_bind_twice_second_is_noop(monkeypatch):
     set_module_args(args)
     with pytest.raises(AnsibleExitJson) as exc:
         my_module.main()
-    assert exc.value.args[0]['changed'] is True
+    assert exc.value.result['changed'] is True
     
     # Second run: already bound (changed=False, no POST)
     set_module_args(args)
     with pytest.raises(AnsibleExitJson) as exc:
         my_module.main()
-    assert exc.value.args[0]['changed'] is False
+    assert exc.value.result['changed'] is False
     assert len(calls) == 4  # GET, POST, GET, GET (no second POST!)
 ```
 
@@ -221,7 +221,7 @@ def test_check_mode_does_not_write(monkeypatch):
     with pytest.raises(AnsibleExitJson) as exc:
         my_module.main()
     
-    assert exc.value.args[0]['changed'] is True  # Would create
+    assert exc.value.result['changed'] is True  # Would create
     assert len(calls) == 1  # Only GET, NO POST
     assert calls[0]["method"] == "GET"
 ```
@@ -243,7 +243,7 @@ def test_fail_when_no_token(monkeypatch):
     with pytest.raises(AnsibleFailJson) as exc:
         my_module.main()
     
-    assert 'api_token' in str(exc.value.args[0]['msg']).lower()
+    assert 'api_token' in str(exc.value.result['msg']).lower()
     assert len(calls) == 0  # No HTTP calls attempted
 ```
 
@@ -265,8 +265,8 @@ def test_fail_when_changing_immutable_field(monkeypatch):
     with pytest.raises(AnsibleFailJson) as exc:
         my_module.main()
     
-    assert 'cpu_architecture' in str(exc.value.args[0]['msg'])
-    assert 'immutable' in str(exc.value.args[0]['msg']).lower()
+    assert 'cpu_architecture' in str(exc.value.result['msg'])
+    assert 'immutable' in str(exc.value.result['msg']).lower()
     assert len(calls) == 1  # Only GET, no PATCH
 ```
 
@@ -287,7 +287,7 @@ def test_fail_when_wrong_status_for_action(monkeypatch):
     with pytest.raises(AnsibleFailJson) as exc:
         my_module.main()
     
-    assert 'installing' in str(exc.value.args[0]['msg'])
+    assert 'installing' in str(exc.value.result['msg'])
     assert len(calls) == 1  # Only GET, no action POST
 ```
 
@@ -310,7 +310,7 @@ def test_handles_500_error(monkeypatch):
     with pytest.raises(AnsibleFailJson) as exc:
         my_module.main()
     
-    assert '500' in str(exc.value.args[0]['msg'])
+    assert '500' in str(exc.value.result['msg'])
 ```
 
 **Required fields validation:**
@@ -322,7 +322,7 @@ def test_required_params(monkeypatch):
     with pytest.raises(AnsibleFailJson) as exc:
         my_module.main()
     
-    assert 'required' in str(exc.value.args[0]['msg']).lower()
+    assert 'required' in str(exc.value.result['msg']).lower()
 ```
 
 **Base URL validation:**
@@ -337,7 +337,7 @@ def test_rejects_http_remote(monkeypatch):
     with pytest.raises(AnsibleFailJson) as exc:
         my_module.main()
     
-    assert 'https' in str(exc.value.args[0]['msg']).lower()
+    assert 'https' in str(exc.value.result['msg']).lower()
 ```
 
 ---
@@ -427,7 +427,7 @@ def test_ignores_write_only_fields_in_drift(monkeypatch):
         my_module.main()
     
     # Should NOT consider this drift (pull_secret can't be compared)
-    assert exc.value.args[0]['changed'] is False
+    assert exc.value.result['changed'] is False
     assert len(calls) == 1  # Only GET, no PATCH
 ```
 
@@ -488,12 +488,19 @@ assert calls[0]["data"] == '{"name": "test"}'  # Request body
 **`AnsibleExitJson` and `AnsibleFailJson`**
 Exceptions raised by `module.exit_json()` and `module.fail_json()`.
 
+Read the full result dict from **`exc.value.result`** — not `exc.value.args[0]`.
+Both helpers store the dict on `.result` and pass only the message *string* to
+`Exception.__init__`, so `exc.value.args[0]` is that string (or the literal
+`"exit_json"` / `"fail_json"` when there is no `msg` key). Indexing it as a dict
+(`exc.value.args[0]['changed']`) raises `TypeError: string indices must be
+integers` — a gray error that looks right until it runs.
+
 ```python
 # Successful module run
 with pytest.raises(AnsibleExitJson) as exc:
     my_module.main()
 
-result = exc.value.args[0]
+result = exc.value.result
 assert result['changed'] is True
 assert result['resource']['id'] == '123'
 
@@ -501,7 +508,7 @@ assert result['resource']['id'] == '123'
 with pytest.raises(AnsibleFailJson) as exc:
     my_module.main()
 
-error = exc.value.args[0]
+error = exc.value.result
 assert 'required' in error['msg']
 ```
 
@@ -630,5 +637,5 @@ def test_happy_path(monkeypatch):
     with pytest.raises(AnsibleExitJson) as exc:
         my_module.main()
     
-    assert exc.value.args[0]['changed'] is False
+    assert exc.value.result['changed'] is False
 ```
