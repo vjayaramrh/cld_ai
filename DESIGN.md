@@ -155,8 +155,8 @@ Galaxy / Automation-Hub publishable and reads the way Ansible users expect.
 cluster_id=dict(type="str")    # Explicit, matches API path parameter
 
 # infra_env module  
-infra_env_id=dict(type="str")  # For updates
-cluster_id=dict(type="str")    # Optional association
+infra_env_id=dict(type="str")  # Implemented: UUID identity for lookup/update/delete
+cluster_id=dict(type="str")    # Optional association (also disambiguates by-name lookup)
 
 # host_action module (already implemented)
 host_id=dict(type="str", required=True)

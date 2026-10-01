@@ -6,6 +6,60 @@ A chronological journal of issues discovered, resolutions implemented, and lesso
 
 ---
 
+## 2026-09-30: Identity Lookup vs. Immutable Fields (infra_env duplicate-create)
+
+**Issue:** The `infra_env` state module scoped its existence-check GET by
+`cluster_id` — a field the same module also guards as **immutable**. The two
+behaviors contradict each other: if a user re-runs a play with a *different*
+`cluster_id`, the scoped lookup finds no match (nothing has the new cluster_id),
+so the module concludes the resource does not exist and **creates a duplicate**
+instead of reporting the immutable-field conflict it was supposed to catch.
+
+**What happened:** `_find_infra_env` passed `cluster_id` as a server-side list
+filter on `GET /v2/infra-envs`. The immutable guard in `_present` never got a
+chance to fire for `cluster_id` changes because the resource was never found. The
+code audit (finding #2) flagged it; it was reproducible from the spec alone —
+`cluster_id` is a create-only (immutable) field, and the list endpoint's
+`cluster_id` filter narrows by exactly that field.
+
+**Impact:** Silent data divergence. A play intended to be idempotent would, on a
+`cluster_id` edit, leave two infra-envs where the user expected one — and never
+surface the "you can't change this" error that protects against the mistake.
+
+**How we discovered it:** Read-only code audit (2026-09-30), cross-checking each
+state module's identity lookup against its immutable-field list.
+
+**Resolution implemented (PR on `fix/infra-env-immutable-lookup`):**
+- The by-name lookup now lists infra-envs and matches `name` **client-side**;
+  `cluster_id` is applied only to *disambiguate* multiple same-named matches, never
+  as the primary existence filter. A changed `cluster_id` is now found and rejected
+  by the immutable guard.
+- Added an optional `infra_env_id` parameter so callers can target the API's real
+  identity (the UUID) directly — `GET /v2/infra-envs/{infra_env_id}` — which is
+  unambiguous even when names repeat.
+- Added `name` to `IMMUTABLE_FIELDS` (it is create-only in the spec).
+- Verified audit finding #3 (openshift_version "phantom drift"): not reproducible —
+  the spec documents no server-side version normalization — so no code change;
+  added a regression test asserting exact-match comparison in case the API ever
+  starts normalizing.
+
+**Lesson learned:** Never scope a state module's existence-check by a field you
+also treat as immutable — look the resource up by a *stable* identity (its real id
+when available, else the natural key), and apply immutable/association fields
+client-side only to disambiguate.
+
+**Artifacts:** `plugins/modules/infra_env.py` (`_find_infra_env`, `_present`,
+`IMMUTABLE_FIELDS`); `tests/unit/plugins/modules/test_infra_env.py` (11 new tests);
+`changelogs/fragments/infra-env-immutable-lookup.yml`; skill rule in
+`new-ai-endpoint-module/SKILL.md` §4 state-pattern #5.
+
+**What to do differently:** When authoring or reviewing a state module, line up the
+identity-lookup query parameters against the immutable-field list — any overlap is
+a duplicate-create bug. The `/new-ai-endpoint-module` skill now encodes this as a
+hard rule.
+
+---
+
 ## 2026-09-30: A Validation Error Message Leaked the Secret It Was Guarding
 
 **Issue:** PR #54 added a check to `_validate_base_url` that rejects a `base_url`

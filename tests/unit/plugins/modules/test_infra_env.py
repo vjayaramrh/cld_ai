@@ -46,6 +46,9 @@ EXISTING = {
 
 BASE_ARGS = {"name": "lab-infra", "pull_secret": "ps", "api_token": "t"}
 
+# Same infra-env, but bound to a cluster (used for the immutable-cluster_id tests).
+EXISTING_BOUND = dict(EXISTING, cluster_id="cluster-A")
+
 
 def _run(monkeypatch, responses, args, calls=None):
     """Drive the module once against a scripted list of (status, body) responses."""
@@ -393,6 +396,171 @@ def test_base_url_with_query_or_fragment_is_rejected(monkeypatch):
             fetch_called.clear()
             continue
         raise AssertionError("base_url with query/fragment was not rejected: %s" % bad_url)
+
+
+# ---------------------------------------------------------------------------
+# Identity model: infra_env_id (UUID) vs. name-based lookup (finding #2 fix)
+# ---------------------------------------------------------------------------
+
+def test_lookup_by_infra_env_id_uses_by_id_endpoint(monkeypatch):
+    """When infra_env_id is given, identity is the UUID: GET /infra-envs/{id}
+    (the API's authoritative identity), not a name-filtered list. No drift =>
+    changed=False and a single GET."""
+    calls = []
+    exc = _run(
+        monkeypatch,
+        responses=[(200, dict(EXISTING))],  # by-id returns the object, not a list
+        args=dict(BASE_ARGS, infra_env_id="abc-123",
+                  image_type="minimal-iso", openshift_version="4.16"),
+        calls=calls,
+    )
+    assert isinstance(exc, AnsibleExitJson)
+    assert exc.result["changed"] is False
+    assert _methods(calls) == ["GET"]
+    assert "/infra-envs/abc-123" in calls[0]["url"]
+
+
+def test_present_with_unknown_infra_env_id_fails_not_creates(monkeypatch):
+    """Targeting a specific infra_env_id that does not exist must NOT create (the
+    id is server-assigned); fail clearly and make no write."""
+    calls = []
+    exc = _run(
+        monkeypatch,
+        responses=[(404, {"reason": "not found"})],
+        args=dict(BASE_ARGS, infra_env_id="missing-id"),
+        calls=calls,
+    )
+    assert isinstance(exc, AnsibleFailJson)
+    assert "infra_env_id" in exc.result["msg"]
+    assert _methods(calls) == ["GET"]
+
+
+def test_infra_env_id_with_mismatched_name_fails_immutable(monkeypatch):
+    """If infra_env_id resolves to a resource whose name differs from the requested
+    name, that's a rename (name is immutable per the spec) -> fail, no write."""
+    calls = []
+    exc = _run(
+        monkeypatch,
+        responses=[(200, dict(EXISTING, name="different-name"))],
+        args=dict(BASE_ARGS, infra_env_id="abc-123"),
+        calls=calls,
+    )
+    assert isinstance(exc, AnsibleFailJson)
+    assert "immutable" in exc.result["msg"].lower()
+    assert "name" in exc.result["msg"]
+    assert _methods(calls) == ["GET"]
+
+
+def test_changing_cluster_id_fails_immutable_without_duplicate(monkeypatch):
+    """Regression for the duplicate-create bug (#2): an existing infra-env bound to
+    cluster-A, re-requested with a different cluster_id, must be FOUND (the lookup
+    is not pre-filtered by cluster_id) and rejected as an immutable change - never
+    a second POST."""
+    calls = []
+    exc = _run(
+        monkeypatch,
+        responses=[(200, [dict(EXISTING_BOUND)])],
+        args=dict(BASE_ARGS, cluster_id="cluster-B"),
+        calls=calls,
+    )
+    assert isinstance(exc, AnsibleFailJson)
+    assert "immutable" in exc.result["msg"].lower()
+    assert "cluster_id" in exc.result["msg"]
+    assert _methods(calls) == ["GET"]  # no POST/PATCH -> no duplicate
+
+
+def test_name_lookup_is_not_prefiltered_by_cluster_id(monkeypatch):
+    """The existence lookup lists infra-envs and matches client-side; it must NOT
+    send cluster_id as a server-side filter (which would hide a resource whose
+    cluster_id differs and cause a duplicate create). cluster_id still goes in the
+    CREATE body."""
+    calls = []
+    _run(
+        monkeypatch,
+        responses=[(200, []), (201, dict(EXISTING_BOUND))],
+        args=dict(BASE_ARGS, cluster_id="cluster-A", openshift_version="4.16"),
+        calls=calls,
+    )
+    assert "cluster_id=" not in calls[0]["url"]  # no server-side filter on the GET
+    assert json.loads(calls[1]["data"])["cluster_id"] == "cluster-A"  # create body
+
+
+def test_multiple_same_name_disambiguated_by_cluster_id(monkeypatch):
+    """When several infra-envs share a name, cluster_id disambiguates client-side to
+    select the one to manage (names are not API-unique)."""
+    calls = []
+    exc = _run(
+        monkeypatch,
+        responses=[(200, [dict(EXISTING, id="in-a", cluster_id="cluster-A"),
+                          dict(EXISTING, id="in-b", cluster_id="cluster-B")])],
+        args=dict(BASE_ARGS, cluster_id="cluster-A",
+                  image_type="minimal-iso", openshift_version="4.16"),
+        calls=calls,
+    )
+    assert isinstance(exc, AnsibleExitJson)
+    assert exc.result["id"] == "in-a"
+    assert exc.result["changed"] is False
+    assert _methods(calls) == ["GET"]
+
+
+def test_absent_by_infra_env_id_deletes(monkeypatch):
+    """state=absent targeting infra_env_id: GET by id then DELETE by id."""
+    calls = []
+    exc = _run(
+        monkeypatch,
+        responses=[(200, dict(EXISTING)), (204, None)],
+        args={"name": "lab-infra", "state": "absent", "api_token": "t",
+              "infra_env_id": "abc-123"},
+        calls=calls,
+    )
+    assert isinstance(exc, AnsibleExitJson)
+    assert exc.result["changed"] is True
+    assert _methods(calls) == ["GET", "DELETE"]
+    assert "/infra-envs/abc-123" in calls[0]["url"]
+
+
+def test_absent_by_infra_env_id_already_gone_is_unchanged(monkeypatch):
+    """state=absent with an infra_env_id that 404s is a no-op (changed=False)."""
+    calls = []
+    exc = _run(
+        monkeypatch,
+        responses=[(404, {"reason": "not found"})],
+        args={"name": "lab-infra", "state": "absent", "api_token": "t",
+              "infra_env_id": "gone"},
+        calls=calls,
+    )
+    assert isinstance(exc, AnsibleExitJson)
+    assert exc.result["changed"] is False
+    assert _methods(calls) == ["GET"]
+
+
+def test_infra_env_id_get_server_error_fails_with_status(monkeypatch):
+    """A non-404 error on the by-id GET is a hard failure (mapped to fail_json with
+    the status), not a silent not-found; so transient/5xx errors are actionable."""
+    exc = _run(
+        monkeypatch,
+        responses=[(500, {"reason": "boom"})],
+        args=dict(BASE_ARGS, infra_env_id="abc-123"),
+    )
+    assert isinstance(exc, AnsibleFailJson)
+    assert exc.result["status"] == 500
+
+
+def test_openshift_version_exact_match_no_phantom_drift(monkeypatch):
+    """Finding #3 verification: openshift_version comparison is exact-match, so
+    equal versions do NOT drift (no phantom PATCH). The spec documents no
+    server-side normalization; if the live API ever normalizes (e.g. 4.16 ->
+    4.16.30), that is a separate issue to reopen."""
+    calls = []
+    exc = _run(
+        monkeypatch,
+        responses=[(200, [dict(EXISTING, openshift_version="4.16")])],
+        args=dict(BASE_ARGS, openshift_version="4.16", image_type="minimal-iso"),
+        calls=calls,
+    )
+    assert isinstance(exc, AnsibleExitJson)
+    assert exc.result["changed"] is False
+    assert _methods(calls) == ["GET"]
 
 
 def test_https_base_url_uses_proxy(monkeypatch):

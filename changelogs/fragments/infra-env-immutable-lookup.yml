@@ -1,0 +1,16 @@
+minor_changes:
+  - infra_env - add an optional ``infra_env_id`` parameter. When set, the module
+    identifies the infra-env by its UUID (the API's authoritative identity) via
+    ``GET /v2/infra-envs/{infra_env_id}`` instead of by ``name``, which is reliable
+    even when names repeat. Capture the id from the ``id`` return value of a create.
+bugfixes:
+  - infra_env - fix a duplicate-create bug when an immutable field changed. The
+    existence lookup previously passed ``cluster_id`` as a server-side filter, so
+    re-running with a different ``cluster_id`` found no match and created a second
+    infra-env instead of reporting the immutable-field conflict. The lookup now
+    lists infra-envs and matches ``name`` client-side (using ``cluster_id`` only to
+    disambiguate multiple same-named matches), so changing ``cluster_id`` is now
+    caught as an immutable change rather than silently duplicated.
+  - infra_env - treat ``name`` as immutable (it is create-only in the API spec), so
+    a rename targeted via ``infra_env_id`` fails clearly instead of being sent to an
+    API that would reject or misapply it.

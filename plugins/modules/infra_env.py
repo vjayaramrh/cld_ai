@@ -28,15 +28,29 @@ options:
     default: present
   name:
     description:
-      - Name of the infra-env. This is the natural key used to find an existing
-        infra-env, and it cannot be changed after creation (renaming produces a
-        new infra-env).
+      - Name of the infra-env. Used as the natural key to find an existing
+        infra-env when O(infra_env_id) is not given. Set at creation only; it
+        cannot be changed afterwards (renaming is an immutable-field error).
+      - The API does not enforce C(name) uniqueness. For reliable idempotent
+        management, keep names unique within your account (optionally within a
+        O(cluster_id)), or target a specific resource with O(infra_env_id).
     type: str
     required: true
+  infra_env_id:
+    description:
+      - The infra-env identifier (a UUID). When set, the module looks the resource
+        up by this id (the API's authoritative identity) instead of by O(name),
+        which is unambiguous even when names repeat.
+      - Capture it from the RV(id) returned on create. If the id does not exist,
+        the module fails rather than creating (the id is server-assigned).
+    type: str
   cluster_id:
     description:
-      - Bind the infra-env to this cluster, and scope the lookup to it. Set at
-        creation only; it cannot be changed on an existing infra-env.
+      - Bind the infra-env to this cluster at creation. Set at creation only; it
+        cannot be changed on an existing infra-env.
+      - Also used to DISAMBIGUATE a name lookup when more than one infra-env shares
+        O(name); it is applied client-side and is never sent as a server-side
+        filter on the existence check.
     type: str
   pull_secret:
     description:
@@ -109,9 +123,9 @@ options:
 notes:
   - Authenticates with the C(Authorization) bearer header against
     U(https://api.openshift.com/api/assisted-install/v2).
-  - O(name) is not enforced unique by the API; if more than one infra-env
-    matches O(name) (within O(cluster_id) when given), the module fails
-    rather than guessing.
+  - O(name) is not enforced unique by the API; if more than one infra-env matches
+    O(name) (after narrowing by O(cluster_id) when given), the module fails rather
+    than guessing. Pass O(infra_env_id) to manage a specific resource unambiguously.
 seealso:
   - name: Assisted Installer REST API
     description: Upstream OpenAPI specification for the Assisted Installer service.
@@ -145,6 +159,14 @@ EXAMPLES = r"""
     image_type: disconnected-iso
     api_token: "{{ assisted_installer_token }}"
   check_mode: true
+
+- name: Update a specific infra-env by its id (unambiguous even if names repeat)
+  openshift_lab.assisted_installer.infra_env:
+    name: lab-infra
+    infra_env_id: "{{ result.id }}"
+    pull_secret: "{{ assisted_installer_pull_secret }}"
+    image_type: full-iso
+    api_token: "{{ assisted_installer_token }}"
 
 - name: Delete the infra-env (changed=false if it is already gone)
   openshift_lab.assisted_installer.infra_env:
@@ -180,8 +202,11 @@ from ansible.module_utils.basic import AnsibleModule, env_fallback
 from ..module_utils import assisted_installer as ai
 
 # Set at creation, absent from the update API -> cannot be PATCHed. Changing one
-# on an existing infra-env is an error (delete + recreate instead).
-IMMUTABLE_FIELDS = ("cluster_id", "cpu_architecture")
+# on an existing infra-env is an error (delete + recreate instead). Derived from
+# the create-vs-update model diff in the OpenAPI spec: create-only == immutable.
+# ``name`` is create-only too, so a rename is an immutable change (it only bites
+# when targeting by infra_env_id, since the name lookup matches on name already).
+IMMUTABLE_FIELDS = ("name", "cluster_id", "cpu_architecture")
 
 # Fields sent verbatim on create (request field name == module option name).
 CREATE_FIELDS = (
@@ -217,13 +242,40 @@ def _error_detail(data):
 
 
 def _find_infra_env(module, token, params):
-    """GET the infra-envs and return the single one matching name (else None)."""
-    query = {}
-    if params.get("cluster_id"):
-        query["cluster_id"] = params["cluster_id"]
+    """Return the single infra-env to manage, or None if it does not exist.
+
+    Identity resolution:
+
+    * ``infra_env_id`` given -> GET /infra-envs/{id}. This is the API's real
+      identity (a UUID), so it is authoritative and unambiguous. A 404 means the
+      resource does not exist (None); any other non-200 is a hard failure.
+    * otherwise -> GET /infra-envs and match by ``name`` CLIENT-SIDE. We do NOT
+      pass ``cluster_id`` as a server-side filter: filtering the existence check
+      by an immutable field would hide a resource whose ``cluster_id`` differs
+      from the request, making the module create a duplicate instead of detecting
+      the immutable-field change. ``name`` is not API-unique, so ``cluster_id``
+      is applied only to DISAMBIGUATE when more than one infra-env shares the
+      name; a still-ambiguous match fails rather than guessing.
+    """
+    infra_env_id = params.get("infra_env_id")
+    if infra_env_id:
+        data, info = ai.request(
+            module, "GET", "/infra-envs/%s" % infra_env_id, token,
+            timeout=params["timeout"], base_url=params["base_url"],
+        )
+        status = info.get("status")
+        if status == 404:
+            return None
+        if status != 200:
+            module.fail_json(
+                msg="Failed to get infra-env '%s' (HTTP %s)" % (infra_env_id, status),
+                status=status,
+            )
+        return data if isinstance(data, dict) else None
+
     data, info = ai.request(
         module, "GET", "/infra-envs", token,
-        query=query, timeout=params["timeout"], base_url=params["base_url"],
+        timeout=params["timeout"], base_url=params["base_url"],
     )
     if info.get("status") != 200:
         module.fail_json(
@@ -232,10 +284,13 @@ def _find_infra_env(module, token, params):
         )
     items = data if isinstance(data, list) else []
     matches = [e for e in items if e.get("name") == params["name"]]
+    if len(matches) > 1 and params.get("cluster_id"):
+        matches = [e for e in matches if e.get("cluster_id") == params["cluster_id"]]
     if len(matches) > 1:
         module.fail_json(
             msg=("Found %d infra-envs named '%s'; refusing to guess. Scope with "
-                 "cluster_id or ensure unique names." % (len(matches), params["name"])),
+                 "cluster_id, target a specific infra_env_id, or ensure unique "
+                 "names." % (len(matches), params["name"])),
         )
     return matches[0] if matches else None
 
@@ -282,6 +337,15 @@ def _present(module, token, params):
     current = _find_infra_env(module, token, params)
 
     if current is None:
+        if params.get("infra_env_id"):
+            # The caller pinned a specific id that does not exist. The id is
+            # server-assigned, so we cannot create it; fail clearly instead of
+            # silently creating a differently-identified resource.
+            module.fail_json(
+                msg=("infra_env_id '%s' was not found; refusing to create. The id "
+                     "is server-assigned - omit infra_env_id to create by name."
+                     % params["infra_env_id"]),
+            )
         if module.check_mode:
             module.exit_json(changed=True, infra_env={}, id=None)
         body = _build_create_body(params)
@@ -348,6 +412,7 @@ def main():
         argument_spec=dict(
             state=dict(type="str", default="present", choices=["present", "absent"]),
             name=dict(type="str", required=True),
+            infra_env_id=dict(type="str"),
             cluster_id=dict(type="str"),
             pull_secret=dict(type="str", no_log=True),
             openshift_version=dict(type="str"),
