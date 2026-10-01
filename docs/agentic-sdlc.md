@@ -146,7 +146,7 @@ The workflow a contributor (human or agent-assisted) follows:
 2. **Generate against the rules** — scaffold with `/new-ai-endpoint-module`, which
    already knows this API's base URL, auth, and shared `fetch_url` client, and
    picks the idempotency skeleton from the resource's classification.
-3. **Let the gates run** — units (required cases in DESIGN.md §7), sanity, and
+3. **Let the gates run** — units (required cases in DESIGN.md §8), sanity, and
    lint must be green before the PR.
 4. **Verify what the gates can't** — read the diff, check it against the spec, and
    confirm `EXAMPLES` are thorough for the module's kind, not a stub. **You own

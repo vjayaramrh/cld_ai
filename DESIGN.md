@@ -34,10 +34,12 @@ milestones*, not API versions.
 - Declarative CRUD done properly: `cluster`, `infra_env`
   (idempotent create/update/delete via GET → PATCH), each paired with a
   read-only `cluster_info` / `infra_env_info`
+- Pulled forward from Phase 2: `host_action` (bind, unbind, install, reset) —
+  implemented early as the reference RPC-style **action** module (see §5).
 
 ### Phase 2 (`2.0.0`+) — the install lifecycle
-- Host management: `host` / `host_info` (register/update/deregister) plus
-  `host_action` (bind, unbind, install, reset)
+- Host management: `host` / `host_info` (register/update/deregister).
+  (`host_action` was pulled forward into Phase 1 — see above.)
 - Cluster actions: `cluster_action` (install, reset, cancel,
   complete-installation, allow-add-hosts, allow-add-workers)
 - Download/info helpers: ISO URL, credentials / kubeconfig
@@ -52,7 +54,7 @@ Idempotency is **not** one recipe applied uniformly. Classify each endpoint:
 |---------|-----------|----------|
 | **Read-only / info** | `openshift_version_info`, `support_level_info`, `supported_operator_info`, `event_info` | Never changes state → always `changed=False`. `supports_check_mode=True` for free. |
 | **State-based (declarative)** | `cluster`, `infra_env` | `state: present/absent`. GET by name/id → observe; create if missing; PATCH if drifted; delete if present. `changed` = real change. Delete of already-absent = `changed=False`. |
-| **RPC-style actions** | `cluster_action`, `host_action` (Phase 2) | Verbs, not desired state — cannot "PATCH to converge." Idempotency = check current status *first* and no-op if already in the target state. |
+| **RPC-style actions** | `host_action` (Phase 1, shipped early), `cluster_action` (Phase 2) | Verbs, not desired state — cannot "PATCH to converge." Idempotency = check current status *first* and no-op if already in the target state. |
 
 The Assisted Installer API is designed for the state-based pattern: it exposes
 `GET` (list + by-id) and `PATCH` for both `clusters` and `infra-envs`, so
@@ -316,8 +318,10 @@ See §8 "Units — every module, always" for the required cases per module type.
 See issue #32 for full TDD adoption rationale.
 
 ### When to build the integration layer
-Not yet. Phase 1's info modules need units only. Introduce the `base_url` param,
-the mock-server fixture, the `tests/integration/` targets, and the CI
-`Integration` job **together with the first state-based module** (`cluster` /
-`infra_env`) — that PR is the trigger. Sanity already validates doc/argspec
-consistency at runtime, so that layer is covered independently.
+**The trigger has fired.** `infra_env` (state-based, #61) and `host_action`
+(action, #58) are merged and the `base_url` override already exists — so the
+mock-server fixture, the `tests/integration/` targets, and the CI `Integration`
+job are now due. This cross-cutting work is tracked in issue #66. Until it lands,
+`infra_env` and `host_action` are unit-complete but not yet lifecycle-complete.
+Sanity already validates doc/argspec consistency at runtime, so that layer is
+covered independently.

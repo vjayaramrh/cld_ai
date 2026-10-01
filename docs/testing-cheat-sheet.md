@@ -13,7 +13,7 @@
 
 ## The 5 Required Test Categories
 
-Every module needs tests in these 5 categories (see DESIGN.md §7):
+Every module needs tests in these 5 categories (see DESIGN.md §8):
 
 ### 1. ✅ Lifecycle (Happy Path)
 

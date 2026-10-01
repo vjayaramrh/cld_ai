@@ -41,7 +41,7 @@ Read CLAUDE.md (conventions) and DESIGN.md (scope, phasing, idempotency) first.
 **Module PRs only:**
 - [ ] Assumptions documented and confirmed in issue (link to user confirmation: issue #___ (comment))
 - [ ] API contract verified against OpenAPI spec (documented findings)
-- [ ] All applicable test categories covered (see DESIGN.md §7)
+- [ ] All applicable test categories covered (see DESIGN.md §8)
 - [ ] Coverage ≥90% (shown in `./run.sh --check` output)
 - [ ] Cost breakdown posted (if tracking costs for this module)
 

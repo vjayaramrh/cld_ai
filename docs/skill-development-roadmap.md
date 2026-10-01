@@ -56,7 +56,7 @@ Tracking skill gaps identified from [Ansible Developer Guide](https://docs.ansib
 - "write unit tests"
 - "integration test setup"
 
-**Why important:** Critical for quality, DESIGN.md §7 requires comprehensive testing
+**Why important:** Critical for quality, DESIGN.md §8 requires comprehensive testing
 
 ---
 
