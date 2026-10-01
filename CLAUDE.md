@@ -495,11 +495,19 @@ a state where cost is posted but PR isn't merged, or to avoid asking for a secon
 - **ONLY** post cost breakdown in the SAME response that executes merge
 - **Trigger:** User approval to merge ("merge", "go ahead and merge", "please merge")
 - **Action:** Post cost comment + merge command (both tool calls, one response)
+- **Marker (required):** the cost comment MUST contain the hidden marker
+  `<!-- cost-breakdown -->` on its own line. This is what makes the atomic rule
+  *enforceable* rather than merely documented: the `gate-pr-merge.sh` hook (see
+  `scripts/hooks/`) blocks `gh pr merge` unless a comment carrying this marker was
+  posted on the PR within the last 15 minutes. The same hook also blocks the merge
+  while any review thread is unresolved (reinforces the resolve-threads rule above).
 
 **Pre-merge checklist (before executing merge command):**
 ```markdown
 - [ ] User approved merge? (if NO: STOP - don't post cost or merge)
 - [ ] Claude used for this PR? (if YES: cost breakdown required - post NOW)
+- [ ] Cost comment includes the `<!-- cost-breakdown -->` marker? (gate blocks merge without it)
+- [ ] All review threads resolved? (gate blocks merge otherwise)
 - [ ] Merge command ready? (execute NOW in THIS response)
 ```
 

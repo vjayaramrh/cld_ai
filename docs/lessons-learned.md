@@ -6,6 +6,55 @@ A chronological journal of issues discovered, resolutions implemented, and lesso
 
 ---
 
+## 2026-10-01: Enforcement Hooks Are Code — Two "Gray" Failures Caught Only by Trialing Them
+
+**Issue:** We added three Claude Code hooks (committed in `.claude/settings.json`,
+scripts in `scripts/hooks/`) to *enforce* process rules that documentation alone kept
+failing to hold — the branch-only commit rule and the atomic cost-breakdown-with-merge
+rule (the latter is the exact gap recorded in the 2026-09-20 "Process Compliance Gap").
+Before promoting them team-wide we ran them local-only. Two of the three had defects
+that looked correct on the page and only surfaced when actually exercised.
+
+**The two defects:**
+1. **A `grep`-based Bash hook cannot parse shell quoting.** The commit guard first
+   matched `git commit` as a *substring* of the whole command, so it blocked any
+   command that merely mentioned the phrase (e.g. an `echo` in a test). Tightening it
+   to match only at a command-segment boundary (start, or after `;`/`&&`/`||`/`|`)
+   fixed the common case, but a literal `&& git commit` inside a quoted string still
+   matches — `grep` has no idea it's quoted. Acceptable for a fail-*safe* guard, but
+   only once you know it.
+2. **A fail-closed guard under `set -euo pipefail` can fail *open*.** The merge gate
+   extracted the PR number via `pr="$(... | grep ...)"`. With no number present, `grep`
+   returns non-zero, `set -e` aborted the script at that line with exit 1 — *before*
+   reaching the `deny()` call. And Claude Code treats a hook exit of 1 (neither 0 nor
+   2) as a **non-blocking error**, so the `gh pr merge` would have *proceeded*. A gate
+   written to fail closed actually failed open on an unexpected-input path. Fixed with
+   `|| true` so every rejection routes through `deny()` (exit 0 + a `deny` decision).
+
+**Why it stayed hidden:** both are "gray errors" — the scripts read correctly and even
+passed a casual happy-path check. #1 only shows when a command contains the phrase in
+passing; #2 only shows on the no-PR-number path, which the happy path never hits. This
+is the same class the log keeps logging: "test helper patterns must be executable, not
+just plausible" (2026-09-22) and "a does-not-leak test must hit the edge case that
+breaks the ordering" (2026-09-30). An enforcement hook is exactly that — code whose
+*only* value is behaving correctly on the inputs you didn't think about.
+
+**Resolution implemented:** Tightened command matching to segment boundaries; added
+`|| true` to the PR-number extraction; documented both as design notes in
+`scripts/hooks/README.md`; proved the fixes by feeding JSON payloads on stdin (so the
+trigger phrases stay out of the test's own command line). Trialed in
+`.claude/settings.local.json` first, then promoted to committed `.claude/settings.json`.
+
+**Lesson learned:** Treat an enforcement hook as code with an adversarial test suite,
+not as config. Two concrete rules fall out: (1) a hook that matches on a command string
+is a heuristic, never a parser — decide whether fail-safe (over-block) or fail-open is
+acceptable and say so; (2) for a fail-*closed* guard, make sure *every* path — bad
+input, missing tool, network error — reaches the explicit block decision, because any
+bare non-zero exit is read as "allow." Verify the block paths, not just the allow path,
+and verify them before the hook governs anyone but yourself.
+
+---
+
 ## 2026-10-01: A Code-Pattern Change Left Teaching Docs Teaching the Old Pattern
 
 **Issue:** The coarse-guard fix (#59 — `host_action` bind decides bound-vs-unbound by
