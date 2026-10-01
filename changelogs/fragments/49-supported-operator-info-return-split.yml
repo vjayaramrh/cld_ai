@@ -1,0 +1,10 @@
+breaking_changes:
+  - supported_operator_info - the polymorphic ``supported_operators`` return value
+    (a list of strings for the list query, or a list of dicts for the by-name query)
+    is replaced by two single-typed fields. ``operator_names`` (list of str) is
+    returned when ``name`` is omitted, and ``operator_properties`` (list of dict) is
+    returned when ``name`` is provided. A return value whose type changed with the
+    inputs could not declare ``elements`` and forced a raw type, leaving the contract
+    undocumentable; the split gives each field one predictable type. As the collection
+    is still pre-release (0.1.0, nothing published), this is a clean break with no
+    deprecation shim (https://github.com/vjayaramrh/cld_ai/issues/49).

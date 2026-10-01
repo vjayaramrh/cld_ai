@@ -66,9 +66,11 @@ def test_list_all_operators_returns_list_and_is_never_changed(monkeypatch):
         exc = _run(monkeypatch, body=SAMPLE_OPERATOR_LIST, args={"api_token": "t"})
         assert isinstance(exc, AnsibleExitJson)
         assert exc.result["changed"] is False
-        assert exc.result["supported_operators"] == SAMPLE_OPERATOR_LIST
+        assert exc.result["operator_names"] == SAMPLE_OPERATOR_LIST
         assert exc.result["count"] == 4
         assert "name" not in exc.result  # name only returned when queried
+        # List mode returns ONLY operator_names, never the detail field.
+        assert "operator_properties" not in exc.result
 
     _once()  # first run
     _once()  # second (idempotent) run — still changed=False
@@ -87,8 +89,10 @@ def test_query_specific_operator_uses_name_in_path(monkeypatch):
     assert "/supported-operators/lvm" in url
     # Verify the result includes the name
     assert exc.result["name"] == "lvm"
-    assert exc.result["supported_operators"] == SAMPLE_OPERATOR_PROPS
+    assert exc.result["operator_properties"] == SAMPLE_OPERATOR_PROPS
     assert exc.result["count"] == 2
+    # Detail mode returns ONLY operator_properties, never the list field.
+    assert "operator_names" not in exc.result
 
 
 def test_uses_get_and_authorizes(monkeypatch):
