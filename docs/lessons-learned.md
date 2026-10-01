@@ -6,7 +6,36 @@ A chronological journal of issues discovered, resolutions implemented, and lesso
 
 ---
 
-## 2026-10-01: A Safety-Guard Allowlist That Mirrored the API Enum (and a test fixture that masked it)
+## 2026-10-01: A Cross-Reference Drifted Again Despite Being a Documented Lesson
+
+**Issue:** Review finding M4. Section references to DESIGN.md's testing strategy
+pointed at **§7** ("Key decisions locked in") when the content actually lives in
+**§8** ("Testing strategy — unit vs. integration"), across eight files — including
+a **broken anchor** in CONTRIBUTING.md (`#7-testing-strategy--unit-vs-integration`,
+which resolves to nothing). The twist: CLAUDE.md *already records this exact
+"§7→§8 drift" as a past lesson*, and the repo has a documented conflict-check
+protocol (grep before PR). The drift recurred anyway.
+
+**Why it stayed hidden:** the conflict-check is **manual** — it only runs when a
+contributor remembers to grep, and only catches what they think to grep for. A
+section inserted earlier in DESIGN.md renumbered everything after it; every
+cross-reference silently became off-by-one. Nothing in CI validates that a
+`DESIGN.md §N` / `#anchor` reference actually resolves, so the stale refs and the
+dead anchor sailed through every PR.
+
+**Resolution implemented:** Fixed all eight `§7`→`§8` references and the broken
+anchor (PR docs/consistency-sweep-phase-and-refs). Left the two *historical*
+mentions in CLAUDE.md (the prior lesson and the grep example) intact — they
+correctly describe the past.
+
+**Lesson learned:** A cross-reference that drifts **twice** is a signal the control
+is wrong, not that people are careless. Manual grep-before-PR is necessary but not
+sufficient for cross-references. The durable fix is to **make broken internal links
+and anchors fail CI** (a markdown link/anchor checker, or a small test that asserts
+every `DESIGN.md §N`/`#anchor` reference resolves). Prefer **stable references over
+positional ones** too: link by section *title/anchor* rather than by number, so
+inserting a section doesn't silently invalidate every downstream "§N". Tracking the
+automated-check idea for a future tooling PR.
 
 **Issue:** #59 / review finding H1+H2. `host_action`'s `bind` guard refused every
 genuinely unbound host. It checked the host status against a hardcoded

@@ -120,7 +120,7 @@ read it before adding a module.
     (2nd run `changed=False`), check-mode, fail-fast on no token, non-2xx →
     `fail_json`. Units own URL/auth/query-encoding/error-mapping — do NOT
     re-cover those in integration.
-  - **Integration (selective — see DESIGN.md §7):** add it for **state-based**
+  - **Integration (selective — see DESIGN.md §8):** add it for **state-based**
     (`cluster`, `infra_env`) and **action** (`cluster_action`, `host_action`)
     modules to prove the multi-step lifecycle across real playbook runs
     (`present → present(no-op) → absent → absent(no-op)`; action guard-on-status).
@@ -128,7 +128,8 @@ read it before adding a module.
     `api.openshift.com`: it runs against a **local mock server** via a `base_url`
     override, gated so it cannot reach prod. Add the `tests/integration/` targets
     and the CI `Integration` job **when the first state-based module lands**, not
-    before.
+    before. (That trigger has now fired — `infra_env` and `host_action` are
+    merged; building this layer is tracked in issue #66.)
   - **Coverage (≥90% enforced):** `./run.sh --check` runs `ansible-test units --coverage`
     and enforces a 90% minimum (total coverage, with branch coverage tracked).
     Shows missing lines and partially-covered branches. Branch coverage catches
@@ -342,7 +343,7 @@ tools might miss:
   the mock host must actually have `cluster_id=None`. Don't test "close enough"
   conditions that happen to trigger a different error.
 - [ ] **All 5 test categories covered** — Lifecycle, idempotency, check-mode,
-  safety guards, API contract (see DESIGN.md §7 and `docs/testing-cheat-sheet.md`).
+  safety guards, API contract (see DESIGN.md §8 and `docs/testing-cheat-sheet.md`).
 - [ ] **Test helpers are executable** — If creating/updating test helper patterns
   (mock functions, fixtures), verify the examples shown actually run with that helper.
   Gray errors: code that looks right but implements wrong behavior. Multi-step

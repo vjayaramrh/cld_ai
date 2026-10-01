@@ -60,7 +60,7 @@ and the repo is set up so it does the right thing by default:
 ## Testing (required)
 
 Every module ships unit tests with the API **mocked** (patch `fetch_url`). Units
-prove the *logic*; the required cases are in [DESIGN.md §7](DESIGN.md#7-testing-strategy--unit-vs-integration):
+prove the *logic*; the required cases are in [DESIGN.md §8](DESIGN.md#8-testing-strategy--unit-vs-integration):
 create/act, idempotency (2nd run `changed=False`), check-mode, fail-fast on a
 missing token (zero HTTP calls), and non-2xx → `fail_json`. No live calls, no
 credentials in CI.
@@ -76,7 +76,7 @@ for workflow and research backing.
 **Integration tests are selective** — add them only for **state** and **action**
 modules (to prove the multi-step lifecycle), and only against a local mock via a
 `base_url` override, never `api.openshift.com`. `_info` modules need units only.
-See DESIGN.md §7 for the matrix and the "when to build it" trigger.
+See DESIGN.md §8 for the matrix and the "when to build it" trigger.
 
 **Coverage ≥90% is enforced** locally and in CI. Run the full check suite:
 

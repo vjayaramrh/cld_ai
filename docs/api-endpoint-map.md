@@ -38,8 +38,8 @@ Everything not `agent-internal` is a candidate module. Phase per DESIGN.md §3;
 | GET | /v2/support-levels/architectures | GetSupportedArchitectures | info | `support_level_info` (`kind: architectures`) | 1 |
 | GET | /v2/support-levels/features | GetSupportedFeatures | info | `support_level_info` (`kind: features`) | 1 |
 | GET | /v2/support-levels/features/detailed | GetDetailedSupportedFeatures | info | `support_level_info` (`kind: features_detailed`) | 1 |
-| GET | /v2/supported-operators | V2ListSupportedOperators | info | `supported_operator_info` | 1 |
-| GET | /v2/supported-operators/{operator_name} | V2ListOperatorProperties | info | `supported_operator_info` (`name:`) | 1 |
+| GET | /v2/supported-operators | V2ListSupportedOperators | info | `supported_operator_info` | 1 ✅ |
+| GET | /v2/supported-operators/{operator_name} | V2ListOperatorProperties | info | `supported_operator_info` (`name:`) | 1 ✅ |
 | GET | /v2/operators/bundles | V2ListBundles | info | `operator_bundle_info` | backlog |
 | GET | /v2/operators/bundles/{id} | V2GetBundle | info | `operator_bundle_info` (`id:`) | backlog |
 | GET | /v2/domains | V2ListManagedDomains | info | `managed_domain_info` | backlog |
@@ -111,9 +111,9 @@ Everything not `agent-internal` is a candidate module. Phase per DESIGN.md §3;
 |--------|------|-------------|---------|--------|-------|
 | GET | /v2/infra-envs | ListInfraEnvs | info | `infra_env_info` | 1 |
 | GET | /v2/infra-envs/{infra_env_id} | GetInfraEnv | info | `infra_env_info` | 1 |
-| POST | /v2/infra-envs | RegisterInfraEnv | state | `infra_env` (`state: present`) | 1 |
-| PATCH | /v2/infra-envs/{infra_env_id} | UpdateInfraEnv | state | `infra_env` | 1 |
-| DELETE | /v2/infra-envs/{infra_env_id} | DeregisterInfraEnv | state | `infra_env` (`state: absent`) | 1 |
+| POST | /v2/infra-envs | RegisterInfraEnv | state | `infra_env` (`state: present`) | 1 ✅ |
+| PATCH | /v2/infra-envs/{infra_env_id} | UpdateInfraEnv | state | `infra_env` | 1 ✅ |
+| DELETE | /v2/infra-envs/{infra_env_id} | DeregisterInfraEnv | state | `infra_env` (`state: absent`) | 1 ✅ |
 | POST | /v2/infra-envs/{infra_env_id}/regenerate-signing-key | RegenerateInfraEnvSigningKey | action | `infra_env_action` (`regenerate-signing-key`) | backlog |
 | GET | /v2/infra-envs/{infra_env_id}/downloads/image-url | GetInfraEnvDownloadURL | download | `infra_env_info` / `infra_env_image_info` (ISO URL) | 2 |
 | GET | /v2/infra-envs/{infra_env_id}/downloads/files | v2DownloadInfraEnvFiles | download | `infra_env_file_info` | backlog |
@@ -138,10 +138,10 @@ Everything not `agent-internal` is a candidate module. Phase per DESIGN.md §3;
 
 | Method | Path | operationId | Pattern | Module | Phase |
 |--------|------|-------------|---------|--------|-------|
-| POST | /v2/infra-envs/{infra_env_id}/hosts/{host_id}/actions/bind | BindHost | action | `host_action` (`bind`) | 2 |
-| POST | /v2/infra-envs/{infra_env_id}/hosts/{host_id}/actions/unbind | UnbindHost | action | `host_action` (`unbind`) | 2 |
-| POST | /v2/infra-envs/{infra_env_id}/hosts/{host_id}/actions/install | v2InstallHost | action | `host_action` (`install`) | 2 |
-| POST | /v2/infra-envs/{infra_env_id}/hosts/{host_id}/actions/reset | v2ResetHost | action | `host_action` (`reset`) | 2 |
+| POST | /v2/infra-envs/{infra_env_id}/hosts/{host_id}/actions/bind | BindHost | action | `host_action` (`bind`) | 1 ✅ |
+| POST | /v2/infra-envs/{infra_env_id}/hosts/{host_id}/actions/unbind | UnbindHost | action | `host_action` (`unbind`) | 1 ✅ |
+| POST | /v2/infra-envs/{infra_env_id}/hosts/{host_id}/actions/install | v2InstallHost | action | `host_action` (`install`) | 1 ✅ |
+| POST | /v2/infra-envs/{infra_env_id}/hosts/{host_id}/actions/reset | v2ResetHost | action | `host_action` (`reset`) | 1 ✅ |
 | PATCH | /v2/infra-envs/{infra_env_id}/hosts/{host_id}/actions/reset-validation/{validation_id} | v2ResetHostValidation | action | `host_action` (`reset-validation`) | backlog |
 
 ## Agent-internal — **out of scope** (no module)
@@ -179,8 +179,9 @@ deliberately excluded from the collection.
 ### Phase rollup (modules to author)
 
 - **Phase 1:** `openshift_version_info` ✅, `support_level_info`,
-  `supported_operator_info` ✅, `cluster` + `cluster_info`, `infra_env` ✅ + `infra_env_info`.
-- **Phase 2:** `cluster_action`, `host` + `host_info` + `host_action` ✅,
+  `supported_operator_info` ✅, `cluster` + `cluster_info`, `infra_env` ✅ + `infra_env_info`,
+  `host_action` ✅ (pulled forward from Phase 2 — the reference action module).
+- **Phase 2:** `cluster_action`, `host` + `host_info`,
   `cluster_info` credentials/downloads (parameters), `infra_env_info` ISO-URL download.
 - **Backlog:** `cluster_manifest` + `cluster_manifest_info`, install-config/ignored-validations
   (fold into `cluster`/`cluster_info` params), events/domains/bundles/component-versions/
