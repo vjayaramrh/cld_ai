@@ -1,0 +1,9 @@
+bugfixes:
+  - infra_env - stop masking ``ssh_authorized_key`` in task output. An SSH public
+    key is not a secret; it carried ``no_log=True`` only because its name ends in
+    ``_key``. It is now declared ``no_log=False`` so the value is visible and does
+    not poison redaction of other values.
+minor_changes:
+  - infra_env - document the ``changed`` return value in the RETURN block.
+  - openshift_version_info - document the ``changed`` return value (always
+    ``false`` for this read-only module) in the RETURN block.

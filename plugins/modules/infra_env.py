@@ -176,6 +176,11 @@ EXAMPLES = r"""
 """
 
 RETURN = r"""
+changed:
+  description: Whether the infra-env was created, updated, or deleted.
+  returned: always
+  type: bool
+  sample: true
 infra_env:
   description:
     - The infra-env resource as returned by the API after create/update, or the
@@ -432,7 +437,11 @@ def main():
                 type="str",
                 choices=["full-iso", "minimal-iso", "disconnected-iso"],
             ),
-            ssh_authorized_key=dict(type="str", no_log=True),
+            # An SSH *public* key is not a secret. no_log=False is explicit (not
+            # omitted) so validate-modules doesn't flag the "_key" name as one that
+            # should be redacted, and so the public key isn't misleadingly masked
+            # in task output/diffs (its substrings could also poison redaction).
+            ssh_authorized_key=dict(type="str", no_log=False),
             proxy=dict(
                 type="dict",
                 options=dict(
