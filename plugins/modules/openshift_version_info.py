@@ -77,6 +77,11 @@ EXAMPLES = r"""
 """
 
 RETURN = r"""
+changed:
+  description: Always V(false) - info modules never change state.
+  returned: always
+  type: bool
+  sample: false
 openshift_versions:
   description:
     - Mapping of OpenShift version identifier to its metadata, as returned by the

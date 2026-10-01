@@ -6,6 +6,38 @@ A chronological journal of issues discovered, resolutions implemented, and lesso
 
 ---
 
+## 2026-10-01: `no_log` on a Non-Secret `_key` Field, and RETURN Missing `changed`
+
+**Issue:** Review findings M6 + M8, two small module-correctness gaps.
+- **M8:** `infra_env`'s `ssh_authorized_key` carried `no_log=True`. But an SSH
+  *public* key is not a secret — masking it hides harmless, useful output (and its
+  substrings can poison redaction of other values). The param had `no_log=True`
+  only because its name ends in `_key`, which validate-modules flags as
+  secret-looking.
+- **M6:** Neither `infra_env` nor `openshift_version_info` documented `changed` in
+  their `RETURN` blocks, even though both return it from every `exit_json` — a
+  CLAUDE.md §1 checklist item ("RETURN documents EVERY field from exit_json").
+
+**Why the M8 fix is `no_log=False`, not removal:** simply *omitting* `no_log` makes
+validate-modules emit `parameter-invalid-no_log` for the `_key`-suffixed name,
+demanding you make the secret/not-secret decision explicit. Setting
+**`no_log=False`** is that explicit decision: it both suppresses the sanity
+false-positive *and* documents (with a code comment) that the value is deliberately
+not masked. No `ignore-*.txt` entry needed.
+
+**Resolution implemented:** Set `ssh_authorized_key=dict(type="str", no_log=False)`
+with an explanatory comment; added `changed` as the first field of both RETURN
+blocks (info module: "Always V(false)"; state module: "created, updated, or
+deleted"). `./run.sh --check` stayed green (97% coverage).
+
+**Lesson learned:** For a param whose *name* matches a secret pattern but whose
+*value* is not a secret (public keys, cert bundles, non-sensitive IDs), set
+`no_log=False` **explicitly** — don't just drop `no_log`. It is the sanctioned way
+to tell both Ansible and validate-modules "I considered this; it's not secret."
+Reserve `no_log=True` for values that are actually sensitive.
+
+---
+
 ## 2026-10-01: A Cross-Reference Drifted Again Despite Being a Documented Lesson
 
 **Issue:** Review finding M4. Section references to DESIGN.md's testing strategy
