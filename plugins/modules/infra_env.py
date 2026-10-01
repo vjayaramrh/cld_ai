@@ -271,7 +271,15 @@ def _find_infra_env(module, token, params):
                 msg="Failed to get infra-env '%s' (HTTP %s)" % (infra_env_id, status),
                 status=status,
             )
-        return data if isinstance(data, dict) else None
+        if not isinstance(data, dict):
+            # A 200 means the resource exists; a non-dict/empty body would make
+            # absent silently skip the delete (changed=False). Fail instead of
+            # pretending it is gone.
+            module.fail_json(
+                msg="Unexpected response body for infra-env '%s'" % infra_env_id,
+                status=status,
+            )
+        return data
 
     data, info = ai.request(
         module, "GET", "/infra-envs", token,

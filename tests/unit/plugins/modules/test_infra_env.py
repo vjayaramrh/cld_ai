@@ -546,6 +546,19 @@ def test_infra_env_id_get_server_error_fails_with_status(monkeypatch):
     assert exc.result["status"] == 500
 
 
+def test_infra_env_id_get_200_non_dict_body_fails_not_skips_delete(monkeypatch):
+    """A 200 on the by-id GET means the resource exists. If the body is empty/
+    non-dict, fail rather than return None - otherwise state=absent would report
+    changed=False and SILENTLY SKIP the delete (CodeRabbit PR #61 finding)."""
+    exc = _run(
+        monkeypatch,
+        responses=[(200, [])],  # 200 but a list, not the expected infra-env dict
+        args=dict(BASE_ARGS, state="absent", infra_env_id="abc-123"),
+    )
+    assert isinstance(exc, AnsibleFailJson)
+    assert exc.result["status"] == 200
+
+
 def test_openshift_version_exact_match_no_phantom_drift(monkeypatch):
     """Finding #3 verification: openshift_version comparison is exact-match, so
     equal versions do NOT drift (no phantom PATCH). The spec documents no
