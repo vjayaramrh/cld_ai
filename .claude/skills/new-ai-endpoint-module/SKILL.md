@@ -116,6 +116,13 @@ Then:
    replace; unset options never appear in the body (no phantom drift).
 4. **Check mode**: `supports_check_mode=True`; always GET (safe), return before any
    POST/PATCH/DELETE when `module.check_mode`; report `changed=True/False` honestly.
+5. **Identity lookup**: find the resource by a **stable** identity. Prefer the API's
+   real id (a UUID path param) when the user can supply it; fall back to the natural
+   key (e.g. `name`). **Never scope the existence check by a field you also guard as
+   immutable** (e.g. filtering the GET by `cluster_id`): a changed immutable field
+   then finds no match and the module creates a DUPLICATE instead of reporting the
+   conflict. Apply such fields client-side to *disambiguate* only. (infra_env shipped
+   exactly this bug — see lessons-learned "Identity lookup vs. immutable fields".)
 
 ## 5. Tests (mock the API — no live calls)
 
