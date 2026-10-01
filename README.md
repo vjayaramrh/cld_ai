@@ -62,7 +62,7 @@ cld_ai/
 ├── scripts/smoke.sh           # verification suite (run.sh --check/--full)
 ├── plugins/
 │   ├── module_utils/          # shared auth / url / fetch_url client
-│   └── modules/               # (modules land here)
+│   └── modules/               # module code (see the module table above)
 ├── tests/
 │   ├── sanity/                # per-version ignore files
 │   └── unit/                  # mocked unit tests

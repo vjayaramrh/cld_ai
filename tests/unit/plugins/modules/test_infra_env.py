@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # Copyright: (c) 2026, Vishwanath Jayaraman (@vjayaramrh)
-# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 """Unit tests for the infra_env (state-based) module.
 
 The API is mocked at the fetch_url layer (per CLAUDE.md), so the REAL shared

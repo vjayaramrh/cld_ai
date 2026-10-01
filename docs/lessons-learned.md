@@ -6,6 +6,37 @@ A chronological journal of issues discovered, resolutions implemented, and lesso
 
 ---
 
+## 2026-10-01: A Code-Pattern Change Left Teaching Docs Teaching the Old Pattern
+
+**Issue:** The coarse-guard fix (#59 — `host_action` bind decides bound-vs-unbound by
+`cluster_id`, no status allowlist) changed a *pattern*, not just a line. But the
+teaching docs kept teaching the removed pattern: the testing-cheat-sheet examples
+(caught earlier as H3) and `python-primer.md` both still showed a `valid_statuses`
+bind allowlist (`if status not in valid_statuses: fail "Cannot bind host in status"`)
+and cited it as "where we use it." Two separate teaching docs drifted from the *same*
+code change, discovered in two separate review passes.
+
+**Why it stayed hidden:** nothing links a code pattern to the docs that teach it.
+Sanity/units validate the module; they don't know a primer paragraph describes the
+very function you just rewrote. Primers are explicitly exempt from the conflict-check
+protocol (they're "educational, not prescriptive"), so the one control that greps for
+drift skips them by design.
+
+**Resolution implemented:** Rewrote the `python-primer.md` guard-clause example to the
+real `cluster_id` coarse guard, swapped the membership-operator example to a real
+check that still exists (`resettable_statuses` in `reset`), and fixed the
+`", ".join(valid_statuses)` citation to a real join. (Cheat-sheet was fixed in H3.)
+
+**Lesson learned:** When you change a *pattern* in code (not just fix a bug), grep the
+teaching surface for the old pattern in the same PR — primers, skills, cheat-sheets,
+READMEs — even though primers are exempt from the formal conflict-check. A good trigger
+is the pattern's distinctive token: here, grepping `valid_statuses` across `docs/` and
+`.claude/skills/` would have surfaced every stale teaching example at once. "Educational,
+not prescriptive" means *lenient about exact phrasing*, not *allowed to teach code that
+no longer exists.*
+
+---
+
 ## 2026-10-01: `no_log` on a Non-Secret `_key` Field, and RETURN Missing `changed`
 
 **Issue:** Review findings M6 + M8, two small module-correctness gaps.

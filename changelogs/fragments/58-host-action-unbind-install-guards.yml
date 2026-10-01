@@ -1,0 +1,9 @@
+bugfixes:
+  - host_action - ``unbind`` now refuses a host that is mid-installation (the API
+    rejects unbinding during installation) instead of issuing a request the API
+    would reject.
+  - host_action - ``install`` is now idempotent across the in-flight and completed
+    installation statuses (``preparing-*``, ``installing-*``, ``installed``,
+    ``added-to-existing-cluster``); a re-run on such a host is a ``changed=false``
+    no-op rather than an error
+    (https://github.com/vjayaramrh/cld_ai/pull/58).

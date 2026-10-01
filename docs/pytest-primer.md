@@ -153,8 +153,9 @@ def test_fail_when_no_token(monkeypatch):
 # Without mocking: this makes a REAL HTTP call to api.openshift.com!
 data, info = ai.request(module, "GET", "/clusters", token)
 
-# With mocking: this returns fake data we control
-monkeypatch.setattr(ai, "fetch_url", fake_fetch_url)
+# With mocking: this returns fake data we control.
+# fake_fetch_url is a FACTORY - call it to build the replacement (don't pass it bare).
+monkeypatch.setattr(ai, "fetch_url", fake_fetch_url(status=200, body={"clusters": []}))
 data, info = ai.request(module, "GET", "/clusters", token)  # Uses fake!
 ```
 

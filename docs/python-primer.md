@@ -130,7 +130,8 @@ f"Valid statuses: {statuses}"  # "Valid statuses: ['known', 'discovering']"
 
 **Where we use it:**
 - `status.lower()` in `needs_action()` function (host_action.py)
-- Building error messages with `", ".join(valid_statuses)`
+- Building error messages with `", ".join(...)` — e.g. the immutable-field list
+  in the conflict message in `infra_env.py`
 
 ---
 
@@ -155,24 +156,26 @@ else:
 # Common Ansible pattern: fail early if conditions not met
 def needs_action(module, host, action, params):
     # Extract values first
-    cluster_id = params.get("cluster_id")
-    status = host.get("status", "").lower()
-    valid_statuses = ["known", "discovering", "disconnected"]
-    
+    requested_cluster = params.get("cluster_id")
+    host_cluster = host.get("cluster_id")   # the host's CURRENT binding
+
     # Then validate (fail early if conditions not met)
-    if not cluster_id:
+    if not requested_cluster:
         module.fail_json(msg="cluster_id required for bind action")
         # Never reaches here - fail_json exits
-    
-    if status not in valid_statuses:
-        module.fail_json(msg=f"Cannot bind host in status '{status}'")
+
+    # Coarse guard: decide bound-vs-unbound by cluster_id, NOT by a status
+    # allowlist (see DESIGN.md §4). A host already bound elsewhere must be
+    # unbound first; the API is the authority on rarer edge cases.
+    if host_cluster and host_cluster != requested_cluster:
+        module.fail_json(msg=f"Host is bound to cluster {host_cluster}. Unbind it first.")
         # Never reaches here
-    
+
     # If we get here, all validations passed
     return True, "Ready to proceed"
 ```
 
-**Where we use it:** `needs_action()` function in host_action.py (validates action preconditions).
+**Where we use it:** `needs_action()` function in host_action.py (validates action preconditions). Note the real bind guard keys off `cluster_id`, not a per-status allowlist — guard on the coarse, stable signal and let the API reject the rest.
 
 ### Truthiness (Important!)
 
@@ -286,15 +289,16 @@ data, info = ai.request(
 ### Checking membership
 
 ```python
-valid_statuses = ["discovering", "known", "disconnected"]
+resettable_statuses = ["error", "installed", "cancelled"]
 
-if status in valid_statuses:
-    print("Status is valid")
-else:
-    module.fail_json(msg=f"Invalid status: {status}")
+if status not in resettable_statuses:
+    module.fail_json(msg=f"Cannot reset host in status '{status}'")
 ```
 
-**Where we use it:** Valid status checking in `needs_action()` bind guard (host_action.py)
+**Where we use it:** The `reset` guard in `needs_action()` (host_action.py) checks
+`status not in resettable_statuses`; `install`/`unbind` likewise test membership
+against the `INSTALLING_STATUSES` / `INSTALLED_STATUSES` / `UNBINDING_STATUSES`
+sets. (Note `bind` does NOT use a status allowlist — it guards on `cluster_id`.)
 
 ### List comprehensions
 
