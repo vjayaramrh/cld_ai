@@ -127,6 +127,16 @@ mock:
   each invocation records `{url, method, data, headers, timeout, ...}` so you can
   assert exactly which verbs fired — the teeth of idempotency/check-mode tests.
 
+> **Caveat — a `**kwargs` mock can't catch a signature mismatch.** Both helpers'
+> inner `_fetch` accepts `**kwargs`, so they silently swallow *any* keyword the
+> module's client passes to `fetch_url` — including an invalid one. A test will go
+> green even if the real `fetch_url` would raise `TypeError` for that kwarg (real
+> `fetch_url` has no `**kwargs` and, e.g., no `validate_certs` parameter). So a
+> passing unit test does **not** prove a kwarg is accepted by the real callee —
+> verify new kwargs against the actual signature
+> (`inspect.signature(fetch_url)`). See lessons-learned "An Issue's Proposed Fix
+> Is Not Authoritative".
+
 ### Required Test Categories
 
 Every module must test these scenarios. Import the helpers once:
@@ -396,15 +406,23 @@ tests/integration/targets/
 
 **NEVER hit production API in tests.**
 
-Use `base_url` parameter to redirect to mock:
+Use the `base_url` parameter to redirect to a mock. Declare it with **no
+default** — the shared client falls back to the production `API_BASE` via
+`base_url or API_BASE`, so a default here would (a) be wrong (`API_BASE` already
+includes `/api/assisted-install/v2`) and (b) risk pointing at the wrong host.
+Then **pass it through** to `request()` — a `base_url` the module never forwards is
+inert.
 
 ```python
-# In module argument_spec
-base_url=dict(type="str", default="https://api.openshift.com")
+# In module argument_spec — NO default (prod is the client's fallback)
+base_url=dict(type="str")
 
-# In module code - use shared request() method
+# In module code — forward base_url to the shared request() helper
 from ..module_utils import assisted_installer as ai
-data, info = ai.request(module, "GET", "/clusters", token)
+data, info = ai.request(
+    module, "GET", "/clusters", token,
+    base_url=module.params["base_url"],
+)
 ```
 
 **Integration test override:**
@@ -533,7 +551,8 @@ Before submitting:
 - [Ansible Testing Guide](https://docs.ansible.com/projects/ansible/latest/dev_guide/testing.html)
 - [Unit Testing Modules](https://docs.ansible.com/projects/ansible/latest/dev_guide/testing_units_modules.html)
 - [Integration Testing](https://docs.ansible.com/projects/ansible/latest/dev_guide/testing_integration.html)
-- This project: `DESIGN.md` §7, `docs/testing-cheat-sheet.md`
+- This project: `DESIGN.md` §8 (testing strategy — unit vs. integration),
+  `docs/testing-cheat-sheet.md`
 
 ---
 
