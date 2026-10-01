@@ -24,13 +24,27 @@ from ansible_helpers import (
 )
 
 
-# Sample host objects for different states
+# Sample host objects for different states.
+# An unbound host carries one of the API's "*-unbound" statuses, NOT the
+# bound-family "known": pairing status="known" with cluster_id=None is an
+# impossible combination and used to mask the bind-guard bug (issue #59).
 HOST_KNOWN_UNBOUND = {
     "id": "host-123",
     "infra_env_id": "infra-456",
-    "status": "known",
+    "status": "known-unbound",
     "cluster_id": None,
 }
+
+# Every unbound status the API can report for a late-binding host; bind must
+# succeed from all of them (the guard decides bound-vs-unbound by cluster_id,
+# not by mirroring this list in code - see DESIGN.md §4).
+UNBOUND_STATUSES = [
+    "discovering-unbound",
+    "known-unbound",
+    "insufficient-unbound",
+    "disconnected-unbound",
+    "disabled-unbound",
+]
 
 HOST_BOUND = {
     "id": "host-123",
@@ -666,17 +680,25 @@ def test_fail_when_bind_missing_cluster_id(monkeypatch):
     assert len(calls) == 0
 
 
-def test_fail_when_bind_invalid_status(monkeypatch):
-    """Bind when host is installing (unbound) → fail with helpful message."""
+@pytest.mark.parametrize("status", UNBOUND_STATUSES)
+def test_bind_succeeds_from_any_unbound_status(monkeypatch, status):
+    """Bind must proceed from EVERY unbound status the API reports.
+
+    This is the regression guard for issue #59: the old code mirrored the status
+    enum with an allowlist of bound-family names, so a genuinely unbound host
+    (always a "*-unbound" status) was wrongly refused. The guard now decides
+    bound-vs-unbound by cluster_id, so binding works from all of these. If a
+    future change reintroduces a too-narrow allowlist, this test fails loudly -
+    enumeration lives in the test (fail-loud), not in the guard (fail-safe).
+    """
     patch_ansible(monkeypatch)
     monkeypatch.delenv("AI_API_TOKEN", raising=False)
     monkeypatch.delenv("AI_OFFLINE_TOKEN", raising=False)
     calls = []
-    # Host is installing but NOT bound (cluster_id = None)
-    host_installing_unbound = {
+    unbound_host = {
         "id": "host-123",
         "infra_env_id": "infra-456",
-        "status": "installing",
+        "status": status,
         "cluster_id": None,
     }
     monkeypatch.setattr(
@@ -684,7 +706,9 @@ def test_fail_when_bind_invalid_status(monkeypatch):
         "fetch_url",
         queue_fetch_url(
             [
-                (200, host_installing_unbound),  # GET: status is "installing", unbound
+                (200, unbound_host),  # GET: unbound host in this status
+                (202, {}),            # POST: bind accepted
+                (200, HOST_BOUND),    # GET: fetch updated host
             ],
             calls=calls,
         ),
@@ -693,16 +717,16 @@ def test_fail_when_bind_invalid_status(monkeypatch):
         "action": "bind",
         "infra_env_id": "infra-456",
         "host_id": "host-123",
-        "cluster_id": "cluster-new",
+        "cluster_id": "cluster-789",
         "api_token": "test-token",
     })
 
-    with pytest.raises(AnsibleFailJson) as exc:
+    with pytest.raises(AnsibleExitJson) as exc:
         host_action.main()
 
-    assert "cannot bind" in str(exc.value.result["msg"]).lower()
-    assert "installing" in str(exc.value.result["msg"])
-    assert len(calls) == 1  # Only GET, no POST
+    assert exc.value.result["changed"] is True
+    assert [c["method"] for c in calls] == ["GET", "POST", "GET"]
+    assert "/actions/bind" in calls[1]["url"]
 
 
 def test_fail_when_bind_to_different_cluster(monkeypatch):

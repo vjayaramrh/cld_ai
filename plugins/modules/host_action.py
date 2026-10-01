@@ -71,11 +71,11 @@ requirements:
   - ansible-core >= 2.17
 notes:
   - Authentication requires either O(api_token) or O(offline_token).
-  - Actions are guarded by host status. V(bind) requires the host to be
-    discovered and unbound (C(discovering), C(known), C(disconnected),
-    C(insufficient), C(pending-for-input)); V(install) requires the host to be
-    bound and C(known); V(reset) applies to C(error), C(installed), or
-    C(cancelled) hosts.
+  - Actions are guarded by host status. V(bind) requires an unbound host (no
+    C(cluster_id); the status is one of the API's C(-unbound) variants such as
+    C(known-unbound)) - a host already bound to a different cluster must be
+    V(unbind)ed first. V(install) requires the host to be bound and C(known);
+    V(reset) applies to C(error), C(installed), or C(cancelled) hosts.
   - Each action is idempotent - if the host is already in the target state for
     that action, C(changed=false) is returned and no API call is made. This
     includes the in-flight installation states - re-running V(install) while the
@@ -87,7 +87,7 @@ notes:
 """
 
 EXAMPLES = r"""
-# bind: guarded on an unbound, discovered host (e.g. status "known" with no cluster_id)
+# bind: guarded on an unbound host (e.g. status "known-unbound", no cluster_id)
 - name: Bind a discovered host to a cluster
   openshift_lab.assisted_installer.host_action:
     action: bind
@@ -225,14 +225,15 @@ def needs_action(module, host, action, params):
                 msg=f"Host is bound to cluster {cluster_id}. Unbind it first before binding to {params['cluster_id']}",
                 host=host,
             )
-        # Typical statuses that allow binding: "discovering", "known", "disconnected", "insufficient"
-        valid_statuses = ["discovering", "known", "disconnected", "insufficient", "pending-for-input"]
-        if status not in valid_statuses:
-            module.fail_json(
-                msg=f"Cannot bind host in status '{status}'. Valid statuses: {valid_statuses}",
-                host=host,
-            )
-        return True, f"Host status '{status}' allows binding"
+        # Reaching here, cluster_id is falsy => the host is unbound (one of the
+        # API's "*-unbound" statuses, e.g. "known-unbound"). Binding is valid
+        # from any unbound state, so we do NOT mirror the status enum with an
+        # allowlist: that mirror drifts as the API evolves and shipped exactly
+        # this bug (it listed the bound-family names, so every real unbound host
+        # was wrongly refused). The API is the final authority on rarer edge
+        # cases and a non-2xx maps to fail_json. See DESIGN.md §4 (coarse
+        # guards) and issue #59.
+        return True, f"Host is unbound (status '{status}'); ready to bind"
 
     elif action == "unbind":
         # Already unbound -> nothing to do.
