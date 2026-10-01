@@ -6,4 +6,4 @@ bugfixes:
     binding failed with "Cannot bind host in status 'known-unbound'" in the primary
     late-binding workflow. The guard now decides bound-vs-unbound by ``cluster_id``
     (the authoritative signal) and no longer mirrors the status enum in code, in
-    line with the coarse-guard principle in DESIGN.md (see issue #59).
+    line with the coarse-guard principle in DESIGN.md (see issue 59).
