@@ -1,0 +1,12 @@
+security_fixes:
+  - module_utils (assisted_installer) - the shared client now rejects a ``base_url``
+    that embeds credentials (``user:pass@host``) before any request is made, and the
+    rejection message never echoes the password. Plaintext HTTP is restricted to
+    loopback hosts (127.0.0.1/localhost/::1) and the proxy is disabled for HTTP
+    loopback, so bearer tokens and pull secrets cannot be transmitted or logged in
+    clear text (https://github.com/vjayaramrh/cld_ai/pull/54).
+bugfixes:
+  - module_utils (assisted_installer) - ``base_url`` validation now requires a
+    hostname and rejects a query or fragment, and token refresh fails cleanly via
+    ``fail_json`` on an empty, non-JSON, or non-object response body instead of
+    raising a raw traceback (https://github.com/vjayaramrh/cld_ai/pull/54).

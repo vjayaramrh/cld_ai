@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # Copyright: (c) 2026, Vishwanath Jayaraman (@vjayaramrh)
-# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 """Unit tests for the shared client ``plugins/module_utils/assisted_installer``.
 
 The client is exercised indirectly by the module tests, but these cases pin the
@@ -86,10 +86,13 @@ def test_request_fails_on_userinfo_base_url(monkeypatch):
 
     with pytest.raises(AnsibleFailJson) as exc:
         ai.request(module, "GET", "/clusters", "token",
-                   base_url="https://u:p@evil.com")
+                   base_url="https://u:sup3rsecret@evil.com")
 
+    msg = exc.value.result["msg"]
     assert calls == []  # no HTTP call fired
-    assert "p" not in exc.value.result["msg"] or "password" in exc.value.result["msg"].lower()
+    # The rejection must be reported AND must not leak the embedded password.
+    assert "credentials" in msg.lower()
+    assert "sup3rsecret" not in msg
 
 
 # --------------------------------------------------------------------------- #
@@ -143,6 +146,21 @@ def test_refresh_token_non_200_fails(monkeypatch):
     assert "401" in exc.value.result["msg"]
 
 
+def test_refresh_token_none_response_fails_cleanly(monkeypatch):
+    """A 200 with no response object (resp is None) fails_json, not a traceback.
+
+    fake_fetch_url never returns resp=None on success, so this pins the
+    ``resp is not None else None`` guard directly with a bespoke stub.
+    """
+    patch_ansible(monkeypatch)
+    module = make_module()
+    monkeypatch.setattr(ai, "fetch_url",
+                        lambda *a, **k: (None, {"status": 200}))
+    with pytest.raises(AnsibleFailJson) as exc:
+        ai._refresh_token(module, "offline-abc")
+    assert "unexpected or unparseable" in exc.value.result["msg"]
+
+
 # --------------------------------------------------------------------------- #
 # build_url — empty collection query values (LOW)                             #
 # --------------------------------------------------------------------------- #
@@ -193,3 +211,25 @@ def test_request_honors_explicit_zero_timeout(monkeypatch):
     ai.request(module, "GET", "/clusters", "token", timeout=0)
 
     assert calls[0]["timeout"] == 0
+
+
+def test_request_returns_raw_when_body_not_json(monkeypatch):
+    """A 200 whose body is not valid JSON is returned verbatim as ``data``.
+
+    fake_fetch_url always JSON-encodes the body, so the non-JSON ``data = raw``
+    fallback in request() needs a bespoke stub returning plain bytes.
+    """
+    patch_ansible(monkeypatch)
+    module = make_module()
+
+    class _PlainResponse(object):
+        def read(self):
+            return b"not json at all"
+
+    monkeypatch.setattr(ai, "fetch_url",
+                        lambda *a, **k: (_PlainResponse(), {"status": 200}))
+
+    data, info = ai.request(module, "GET", "/clusters", "token")
+
+    assert info["status"] == 200
+    assert data == b"not json at all"

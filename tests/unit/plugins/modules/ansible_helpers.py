@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # Copyright: (c) 2026, Vishwanath Jayaraman (@vjayaramrh)
-# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 """Unit-test helpers for openshift_lab.assisted_installer modules.
 
 Provides:
