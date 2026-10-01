@@ -273,8 +273,9 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md) for manual API verification workflow.
 We mock at the `fetch_url` layer - see examples in `tests/unit/plugins/modules/test_infra_env.py`:
 
 ```python
-from ansible_helpers import queue_fetch_url
+from ansible_helpers import patch_ansible, queue_fetch_url
 
+patch_ansible(monkeypatch)  # required first: makes exit_json/fail_json catchable
 calls = []
 monkeypatch.setattr(ai, "fetch_url", queue_fetch_url([
     (200, [{"id": "123", "name": "test"}]),  # GET response

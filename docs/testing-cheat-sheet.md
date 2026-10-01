@@ -2,6 +2,13 @@
 
 **Quick reference for writing unit tests** — see [testing-guide.md](testing-guide.md) for detailed explanations.
 
+> ⚠️ **Every test must call `patch_ansible(monkeypatch)` first.** It redirects
+> `AnsibleModule.exit_json`/`fail_json` to raise the capturable `AnsibleExitJson`/
+> `AnsibleFailJson` exceptions. Without it, the real methods run (print JSON and
+> call `sys.exit`), so `pytest.raises(AnsibleExitJson)` never catches and the copied
+> test errors out instead of passing. `pytest-primer.md` marks it "Required!" — so
+> every example below opens with it.
+
 ---
 
 ## The 5 Required Test Categories
@@ -16,6 +23,7 @@ Tests that the module does what it's supposed to do.
 ```python
 def test_query_returns_results(monkeypatch):
     """GET request returns data, changed=False."""
+    patch_ansible(monkeypatch)
     calls = []
     monkeypatch.setattr(ai, "fetch_url", queue_fetch_url([
         (200, {"4.16": {"display_name": "4.16.3"}}),
@@ -33,6 +41,7 @@ def test_query_returns_results(monkeypatch):
 ```python
 def test_present_creates_when_absent(monkeypatch):
     """Creates resource when it doesn't exist, changed=True."""
+    patch_ansible(monkeypatch)
     calls = []
     monkeypatch.setattr(ai, "fetch_url", queue_fetch_url([
         (404, "Not found"),              # GET: resource doesn't exist
@@ -51,6 +60,7 @@ def test_present_creates_when_absent(monkeypatch):
 ```python
 def test_present_updates_when_drift(monkeypatch):
     """Updates resource when it exists but differs, changed=True."""
+    patch_ansible(monkeypatch)
     calls = []
     monkeypatch.setattr(ai, "fetch_url", queue_fetch_url([
         (200, {"id": "123", "name": "test", "version": "old"}),  # GET: exists but wrong
@@ -69,6 +79,7 @@ def test_present_updates_when_drift(monkeypatch):
 ```python
 def test_absent_deletes_when_exists(monkeypatch):
     """Deletes resource when it exists, changed=True."""
+    patch_ansible(monkeypatch)
     calls = []
     monkeypatch.setattr(ai, "fetch_url", queue_fetch_url([
         (200, {"id": "123", "name": "test"}),  # GET: exists
@@ -108,6 +119,7 @@ it proves "already done = no-op" but not "action → action = no-op."
 ```python
 def test_present_no_drift_is_unchanged(monkeypatch):
     """Resource exists and matches desired state → changed=False, no PATCH."""
+    patch_ansible(monkeypatch)
     calls = []
     monkeypatch.setattr(ai, "fetch_url", queue_fetch_url([
         (200, {"id": "123", "name": "test", "version": "new"}),  # GET: already correct
@@ -125,6 +137,7 @@ def test_present_no_drift_is_unchanged(monkeypatch):
 ```python
 def test_absent_when_missing_is_unchanged(monkeypatch):
     """Resource doesn't exist → changed=False, no DELETE."""
+    patch_ansible(monkeypatch)
     calls = []
     monkeypatch.setattr(ai, "fetch_url", queue_fetch_url([
         (404, "Not found"),  # GET: doesn't exist
@@ -142,6 +155,7 @@ def test_absent_when_missing_is_unchanged(monkeypatch):
 ```python
 def test_action_when_already_done_is_unchanged(monkeypatch):
     """Host already bound → changed=False, no action POST."""
+    patch_ansible(monkeypatch)
     calls = []
     monkeypatch.setattr(ai, "fetch_url", queue_fetch_url([
         (200, {"id": "host-1", "status": "bound"}),  # GET: already bound
@@ -163,10 +177,11 @@ def test_action_when_already_done_is_unchanged(monkeypatch):
 ```python
 def test_bind_twice_second_is_noop(monkeypatch):
     """Bind unbound host, then bind again → first changes, second doesn't."""
+    patch_ansible(monkeypatch)
     calls = []
     monkeypatch.setattr(ai, "fetch_url", queue_fetch_url([
         # First run: bind
-        (200, {"id": "host-1", "status": "known", "cluster_id": None}),     # GET: unbound
+        (200, {"id": "host-1", "status": "known-unbound", "cluster_id": None}),  # GET: unbound
         (202, {}),                                                           # POST: bind action
         (200, {"id": "host-1", "status": "known", "cluster_id": "c-1"}),    # GET: fetch updated
         # Second run: same action, already bound
@@ -207,6 +222,7 @@ Tests that `--check` mode (dry-run) doesn't actually make changes.
 ```python
 def test_check_mode_does_not_write(monkeypatch):
     """Check mode predicts changes but doesn't POST/PATCH/DELETE."""
+    patch_ansible(monkeypatch)
     calls = []
     monkeypatch.setattr(ai, "fetch_url", queue_fetch_url([
         (404, "Not found"),  # GET: doesn't exist
@@ -236,6 +252,10 @@ Tests that the module fails gracefully with helpful messages.
 ```python
 def test_fail_when_no_token(monkeypatch):
     """Missing api_token → fail before any HTTP call."""
+    patch_ansible(monkeypatch)
+    # Clear any ambient token so "no token" is actually true (CI may export one).
+    monkeypatch.delenv("AI_API_TOKEN", raising=False)
+    monkeypatch.delenv("AI_OFFLINE_TOKEN", raising=False)
     calls = []
     monkeypatch.setattr(ai, "fetch_url", queue_fetch_url([], calls=calls))
     set_module_args({'name': 'test'})  # Missing api_token
@@ -251,6 +271,7 @@ def test_fail_when_no_token(monkeypatch):
 ```python
 def test_fail_when_changing_immutable_field(monkeypatch):
     """Trying to change immutable field → fail with clear message."""
+    patch_ansible(monkeypatch)
     calls = []
     monkeypatch.setattr(ai, "fetch_url", queue_fetch_url([
         (200, {"id": "123", "cpu_architecture": "x86_64"}),
@@ -273,21 +294,23 @@ def test_fail_when_changing_immutable_field(monkeypatch):
 **Action module: wrong status for action:**
 ```python
 def test_fail_when_wrong_status_for_action(monkeypatch):
-    """Trying to bind an installing host → fail with helpful message."""
+    """Trying to install a host that isn't 'known' → fail with helpful message."""
+    patch_ansible(monkeypatch)
     calls = []
     monkeypatch.setattr(ai, "fetch_url", queue_fetch_url([
-        (200, {"id": "host-1", "status": "installing"}),
+        # install requires status "known"; a bound host still "discovering" is refused.
+        (200, {"id": "host-1", "status": "discovering", "cluster_id": "c-1"}),
     ], calls=calls))
     set_module_args({
         'host_id': 'host-1',
-        'action': 'bind',
+        'action': 'install',
         'api_token': 'test-token',
     })
     
     with pytest.raises(AnsibleFailJson) as exc:
         my_module.main()
     
-    assert 'installing' in str(exc.value.result['msg'])
+    assert 'discovering' in str(exc.value.result['msg'])
     assert len(calls) == 1  # Only GET, no action POST
 ```
 
@@ -301,6 +324,7 @@ Tests that the module handles API errors correctly.
 ```python
 def test_handles_500_error(monkeypatch):
     """API returns 500 → fail_json with status and details."""
+    patch_ansible(monkeypatch)
     calls = []
     monkeypatch.setattr(ai, "fetch_url", queue_fetch_url([
         (500, {"error": "Internal server error"}),
@@ -317,6 +341,7 @@ def test_handles_500_error(monkeypatch):
 ```python
 def test_required_params(monkeypatch):
     """Missing required parameter → fail before HTTP."""
+    patch_ansible(monkeypatch)
     set_module_args({})  # Missing everything
     
     with pytest.raises(AnsibleFailJson) as exc:
@@ -329,6 +354,7 @@ def test_required_params(monkeypatch):
 ```python
 def test_rejects_http_remote(monkeypatch):
     """HTTP to remote host → fail (security)."""
+    patch_ansible(monkeypatch)
     set_module_args({
         'api_token': 'test-token',
         'base_url': 'http://evil.com',  # Not HTTPS!
@@ -412,6 +438,7 @@ State modules with write-only fields (like `pull_secret`) must exclude them from
 ```python
 def test_ignores_write_only_fields_in_drift(monkeypatch):
     """pull_secret is write-only → not in drift comparison."""
+    patch_ansible(monkeypatch)
     calls = []
     monkeypatch.setattr(ai, "fetch_url", queue_fetch_url([
         (200, {"id": "123", "name": "test"}),  # GET doesn't return pull_secret
@@ -447,14 +474,28 @@ from ansible_collections.openshift_lab.assisted_installer.plugins.module_utils i
 from ansible_helpers import (
     AnsibleExitJson,    # Catch module.exit_json()
     AnsibleFailJson,    # Catch module.fail_json()
+    patch_ansible,      # REQUIRED: make exit_json/fail_json raise the above
     queue_fetch_url,    # Mock HTTP responses (multiple calls)
     set_module_args,    # Pass parameters to module
 )
+# fake_fetch_url is also available for single-call tests (one canned response).
 ```
 
 ---
 
 ### Helper Functions
+
+**`patch_ansible(monkeypatch)`** — call this FIRST in every test.
+Redirects `AnsibleModule.exit_json`/`fail_json` to raise `AnsibleExitJson`/
+`AnsibleFailJson` so `pytest.raises(...)` can catch them. Skip it and the real
+methods run (print JSON, `sys.exit`), so `pytest.raises` never catches and the
+test errors out — a gray error that looks right until you run it.
+
+```python
+def test_something(monkeypatch):
+    patch_ansible(monkeypatch)   # ← before set_module_args / main()
+    ...
+```
 
 **`set_module_args(args_dict)`**
 Sets module parameters (what user passes in playbook).
@@ -572,6 +613,23 @@ ansible-test coverage report --show-missing
 
 ## Common Pitfalls
 
+### ❌ Forgetting `patch_ansible`
+```python
+# WRONG: real exit_json runs (prints JSON + sys.exit); pytest.raises never catches
+def test_x(monkeypatch):
+    calls = []
+    monkeypatch.setattr(ai, "fetch_url", queue_fetch_url([(200, {})], calls=calls))
+    set_module_args({'api_token': 't'})
+    with pytest.raises(AnsibleExitJson):   # never triggered → test errors out
+        my_module.main()
+
+# RIGHT: patch_ansible FIRST so exit_json/fail_json raise capturable exceptions
+def test_x(monkeypatch):
+    patch_ansible(monkeypatch)
+    calls = []
+    ...
+```
+
 ### ❌ Forgetting to Record Calls
 ```python
 # WRONG: Can't verify what was called
@@ -624,10 +682,11 @@ assert result['count'] == len(SAMPLE_DATA)
 ```python
 from ansible_collections.openshift_lab.assisted_installer.plugins.modules import my_module
 from ansible_collections.openshift_lab.assisted_installer.plugins.module_utils import assisted_installer as ai
-from ansible_helpers import AnsibleExitJson, AnsibleFailJson, queue_fetch_url, set_module_args
+from ansible_helpers import AnsibleExitJson, AnsibleFailJson, patch_ansible, queue_fetch_url, set_module_args
 import pytest
 
 def test_happy_path(monkeypatch):
+    patch_ansible(monkeypatch)
     calls = []
     monkeypatch.setattr(ai, "fetch_url", queue_fetch_url([
         (200, {"id": "123"}),
