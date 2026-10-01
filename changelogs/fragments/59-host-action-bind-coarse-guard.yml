@@ -1,0 +1,9 @@
+bugfixes:
+  - host_action - fix ``bind`` wrongly refusing every genuinely unbound host. The
+    status guard listed the bound-family status names (``known``, ``discovering``,
+    ...) but a host that is actually unbound always reports one of the API's
+    ``*-unbound`` statuses (``known-unbound``, ``discovering-unbound``, etc.), so
+    binding failed with "Cannot bind host in status 'known-unbound'" in the primary
+    late-binding workflow. The guard now decides bound-vs-unbound by ``cluster_id``
+    (the authoritative signal) and no longer mirrors the status enum in code, in
+    line with the coarse-guard principle in DESIGN.md (see issue 59).

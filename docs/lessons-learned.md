@@ -6,6 +6,43 @@ A chronological journal of issues discovered, resolutions implemented, and lesso
 
 ---
 
+## 2026-10-01: A Safety-Guard Allowlist That Mirrored the API Enum (and a test fixture that masked it)
+
+**Issue:** #59 / review finding H1+H2. `host_action`'s `bind` guard refused every
+genuinely unbound host. It checked the host status against a hardcoded
+`valid_statuses = ["discovering", "known", "disconnected", "insufficient",
+"pending-for-input"]` — all **bound-family** names. But by that point the code had
+already established the host was unbound (via `cluster_id`), and an unbound host
+*always* carries one of the API's **`*-unbound`** statuses (`known-unbound`, …),
+none of which were in the list. So the guard's two halves were mutually exclusive:
+"prove it's unbound, then demand a bound status." Binding failed in its primary
+(late-binding) use case with "Cannot bind host in status 'known-unbound'".
+
+**Why it stayed hidden (the H2 gray error):** the bind unit tests used
+`HOST_KNOWN_UNBOUND = {"status": "known", "cluster_id": None}` — an **impossible
+combination** (`known` is bound-family; a real unbound host is `known-unbound`).
+The fixture happened to use a status that was in the buggy allowlist, so the tests
+went green and masked the bug. This is the exact "safety-guard test must trigger
+the REAL condition" rule from CLAUDE.md §3, violated by a look-alike fixture.
+
+**Resolution implemented:** Removed the allowlist. The guard now decides
+bound-vs-unbound by `cluster_id` alone (already present and correct) and lets the
+API be the authority on rarer edge cases — exactly the coarse-guard principle in
+DESIGN.md §4 (which explicitly says "Don't add fine-grained per-verb source-state
+allowlists"). Fixed the fixture to a real `known-unbound` status and added a
+parametrized test asserting bind succeeds from **all five** `*-unbound` statuses.
+
+**Lesson learned:** Two rules. (1) **Don't mirror an API enum in guard code** — an
+allowlist of valid source statuses silently goes stale when the API evolves, and
+its failure mode (wrongly *refusing* a valid op) is invisible until a user hits it.
+Guard on the coarse, stable signal (here `cluster_id`) and let the API reject the
+rest. (2) **Enumerate in tests, generalize in guards** — put the specific status
+list in a *test* (where going stale fails loudly, red CI), not in the running guard
+(where going stale fails silently-wrong). And a safety-guard test's fixture must be
+a *possible* state, not a convenient look-alike that sneaks past the bug.
+
+---
+
 ## 2026-10-01: An Issue's Proposed Fix Is Not Authoritative (and a `**kwargs` mock can't catch a signature mismatch)
 
 **Issue:** #55 asked to fix an inaccurate `security.md` §3 claim ("the shared
